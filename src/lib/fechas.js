@@ -54,6 +54,7 @@ export function isoDeHoy(sumarDias = 0) {
  */
 export function claseDeuda(deuda) {
   if (deuda.status === 'paid') return 'pagada'
+  if (deuda.status === 'disputed') return 'reclamo'
   return diasHasta(deuda.due_date) < 0 ? 'vencida' : 'por_vencer'
 }
 
@@ -62,6 +63,8 @@ export function textoVencimiento(deuda) {
   if (deuda.status === 'paid') {
     return deuda.days_late > 0 ? `Pagó ${deuda.days_late} día${deuda.days_late === 1 ? '' : 's'} tarde` : 'Pagada a tiempo'
   }
+
+  if (deuda.status === 'disputed') return 'El cliente reclama'
 
   const d = diasHasta(deuda.due_date)
   if (d === null) return ''

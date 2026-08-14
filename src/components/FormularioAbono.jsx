@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { abonar, marcarPagada } from '../lib/datos'
+import { Trash2 } from 'lucide-react'
+import { abonar, borrarAbono, marcarPagada } from '../lib/datos'
 import { mensajeDeError } from '../lib/errores'
 import { formatearMonto } from '../lib/formato'
 import { Alerta, Boton, Campo, Hoja } from './UI'
@@ -10,11 +11,17 @@ function sugerencias(saldo) {
   return [...new Set([mitad, saldo])].filter((n) => n > 0)
 }
 
-export default function FormularioAbono({ deuda, alCerrar, alGuardar }) {
+function fechaCorta(iso) {
+  const f = new Date(iso)
+  return f.toLocaleDateString('es-VE', { day: 'numeric', month: 'short' })
+}
+
+export default function FormularioAbono({ deuda, abonos = [], alCerrar, alGuardar }) {
   const [monto, setMonto] = useState('')
   const [error, setError] = useState(null)
   const [errorGeneral, setErrorGeneral] = useState(null)
   const [guardando, setGuardando] = useState(false)
+  const [borrando, setBorrando] = useState(null)
 
   useEffect(() => {
     setMonto('')
@@ -27,6 +34,7 @@ export default function FormularioAbono({ deuda, alCerrar, alGuardar }) {
   const total = Number(deuda.amount)
   const abonado = Number(deuda.abonado ?? 0)
   const saldo = Math.max(total - abonado, 0)
+  const mios = abonos.filter((a) => a.debt_id === deuda.id)
 
   async function enviar(evento) {
     evento.preventDefault()
@@ -60,6 +68,19 @@ export default function FormularioAbono({ deuda, alCerrar, alGuardar }) {
     }
   }
 
+  async function quitar(idAbono) {
+    setErrorGeneral(null)
+    setBorrando(idAbono)
+    try {
+      await borrarAbono(idAbono)
+      await alGuardar()
+    } catch (fallo) {
+      setErrorGeneral(mensajeDeError(fallo))
+    } finally {
+      setBorrando(null)
+    }
+  }
+
   return (
     <Hoja abierta={Boolean(deuda)} alCerrar={alCerrar} titulo={`Abono de ${deuda.full_name}`}>
       <div className="mb-4 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
@@ -73,6 +94,32 @@ export default function FormularioAbono({ deuda, alCerrar, alGuardar }) {
           </p>
         )}
       </div>
+
+      {mios.length > 0 && (
+        <div className="mb-4">
+          <p className="mb-2 text-sm font-medium text-slate-700">Abonos anteriores</p>
+          <ul className="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-200">
+            {mios.map((a) => (
+              <li key={a.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                <span className="text-sm text-slate-500">{fechaCorta(a.paid_at)}</span>
+                <span className="ml-auto font-medium text-slate-900">
+                  {formatearMonto(a.amount)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => quitar(a.id)}
+                  disabled={borrando === a.id}
+                  aria-label={`Borrar abono de ${formatearMonto(a.amount)}`}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600
+                             disabled:opacity-40"
+                >
+                  <Trash2 className="size-4" aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <form onSubmit={enviar} noValidate className="space-y-4">
         <Campo

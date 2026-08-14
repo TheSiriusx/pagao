@@ -31,6 +31,35 @@ export async function crearDeuda({ cedula, nombre, monto, vence, notas, telefono
   return data
 }
 
+export async function actualizarDeuda({ id, monto, vence, notas }) {
+  const { error } = await supabase.rpc('update_debt', {
+    p_debt_id: id,
+    p_amount: Number(monto),
+    p_due_date: vence,
+    p_notes: notas?.trim() || null,
+  })
+  if (error) throw error
+}
+
+export async function borrarDeuda(idDeuda) {
+  const { error } = await supabase.rpc('delete_debt', { p_debt_id: idDeuda })
+  if (error) throw error
+}
+
+export async function borrarAbono(idAbono) {
+  const { error } = await supabase.rpc('delete_payment', { p_payment_id: idAbono })
+  if (error) throw error
+}
+
+/** Marca o desmarca la deuda como "el cliente reclama que ya pagó". */
+export async function marcarReclamo(idDeuda, enReclamo) {
+  const { error } = await supabase.rpc('set_debt_disputed', {
+    p_debt_id: idDeuda,
+    p_disputed: enReclamo,
+  })
+  if (error) throw error
+}
+
 export async function marcarPagada(idDeuda) {
   const { error } = await supabase.rpc('mark_debt_paid', { p_debt_id: idDeuda })
   if (error) throw error

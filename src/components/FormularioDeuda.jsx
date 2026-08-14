@@ -1,17 +1,42 @@
-import { useState } from 'react'
-import { crearDeuda } from '../lib/datos'
+import { useEffect, useState } from 'react'
+import { actualizarDeuda, crearDeuda } from '../lib/datos'
 import { mensajeDeError } from '../lib/errores'
-import { cedulaValida, telefonoValido } from '../lib/formato'
+import { cedulaValida, formatearCedula, telefonoValido } from '../lib/formato'
 import { isoDeHoy } from '../lib/fechas'
 import { Alerta, Boton, Campo, Hoja } from './UI'
 
 const VACIO = { cedula: '', nombre: '', monto: '', vence: isoDeHoy(15), notas: '', telefono: '' }
 
-export default function FormularioDeuda({ abierto, alCerrar, alGuardar }) {
+/**
+ * Sirve para dos cosas: registrar un fiado nuevo y corregir uno existente.
+ * En modo edición la cédula y el nombre no se tocan — cambiarlos convertiría
+ * la deuda en la de otra persona, y esa fila ya vive en el historial de la
+ * red. Para eso se borra y se vuelve a crear.
+ */
+export default function FormularioDeuda({ abierto, deuda, alCerrar, alGuardar }) {
+  const editando = Boolean(deuda)
+
   const [campos, setCampos] = useState(VACIO)
   const [errores, setErrores] = useState({})
   const [errorGeneral, setErrorGeneral] = useState(null)
   const [guardando, setGuardando] = useState(false)
+
+  useEffect(() => {
+    if (deuda) {
+      setCampos({
+        cedula: deuda.cedula,
+        nombre: deuda.full_name,
+        monto: String(deuda.amount),
+        vence: String(deuda.due_date).slice(0, 10),
+        notas: deuda.notes ?? '',
+        telefono: '',
+      })
+    } else {
+      setCampos(VACIO)
+    }
+    setErrores({})
+    setErrorGeneral(null)
+  }, [deuda?.id, abierto])
 
   function set(clave, valor) {
     setCampos((c) => ({ ...c, [clave]: valor }))
@@ -22,22 +47,29 @@ export default function FormularioDeuda({ abierto, alCerrar, alGuardar }) {
   function validar() {
     const nuevos = {}
 
-    // La misma regla corre en create_debt: el cliente solo avisa antes de
-    // gastar el viaje a la red, no es la validación de verdad.
-    if (!cedulaValida(campos.cedula)) {
-      nuevos.cedula = 'Escríbela como V12345678 o E12345678.'
+    if (!editando) {
+      // Las mismas reglas corren en create_debt: el cliente solo avisa antes
+      // de gastar el viaje a la red, no es la validación de verdad.
+      if (!cedulaValida(campos.cedula)) {
+        nuevos.cedula = 'Escríbela como V12345678 o E12345678.'
+      }
+      if (campos.nombre.trim().length < 2) {
+        nuevos.nombre = 'Falta el nombre del cliente.'
+      }
+      if (campos.telefono.trim() && !telefonoValido(campos.telefono)) {
+        nuevos.telefono = 'Ese número no parece un celular venezolano.'
+      }
     }
-    if (campos.nombre.trim().length < 2) {
-      nuevos.nombre = 'Falta el nombre del cliente.'
-    }
+
     if (!(Number(campos.monto) > 0)) {
       nuevos.monto = 'El monto debe ser mayor que cero.'
     }
+    const abonado = Number(deuda?.abonado ?? 0)
+    if (editando && Number(campos.monto) < abonado) {
+      nuevos.monto = `No puede ser menor que los $${abonado.toFixed(2)} que ya abonó.`
+    }
     if (!campos.vence) {
       nuevos.vence = 'Falta la fecha de vencimiento.'
-    }
-    if (campos.telefono.trim() && !telefonoValido(campos.telefono)) {
-      nuevos.telefono = 'Ese número no parece un celular venezolano.'
     }
 
     setErrores(nuevos)
@@ -50,9 +82,11 @@ export default function FormularioDeuda({ abierto, alCerrar, alGuardar }) {
 
     setGuardando(true)
     try {
-      await crearDeuda(campos)
-      setCampos(VACIO)
-      setErrores({})
+      if (editando) {
+        await actualizarDeuda({ id: deuda.id, ...campos })
+      } else {
+        await crearDeuda(campos)
+      }
       await alGuardar()
       alCerrar()
     } catch (fallo) {
@@ -63,28 +97,41 @@ export default function FormularioDeuda({ abierto, alCerrar, alGuardar }) {
   }
 
   return (
-    <Hoja abierta={abierto} alCerrar={alCerrar} titulo="Nuevo fiado">
+    <Hoja
+      abierta={abierto}
+      alCerrar={alCerrar}
+      titulo={editando ? 'Corregir fiado' : 'Nuevo fiado'}
+    >
       <form onSubmit={enviar} noValidate className="space-y-4">
-        <Campo
-          id="cedula"
-          etiqueta="Cédula del cliente"
-          inputMode="text"
-          autoCapitalize="characters"
-          placeholder="V12345678"
-          value={campos.cedula}
-          onChange={(e) => set('cedula', e.target.value)}
-          error={errores.cedula}
-          ayuda="Con esta cédula se arma su historial en la red."
-        />
+        {editando ? (
+          <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+            <p className="font-semibold text-slate-900">{campos.nombre}</p>
+            <p className="text-xs text-slate-500">{formatearCedula(campos.cedula)}</p>
+          </div>
+        ) : (
+          <>
+            <Campo
+              id="cedula"
+              etiqueta="Cédula del cliente"
+              inputMode="text"
+              autoCapitalize="characters"
+              placeholder="V12345678"
+              value={campos.cedula}
+              onChange={(e) => set('cedula', e.target.value)}
+              error={errores.cedula}
+              ayuda="Con esta cédula se arma su historial en la red."
+            />
 
-        <Campo
-          id="nombre"
-          etiqueta="Nombre"
-          placeholder="José Rodríguez"
-          value={campos.nombre}
-          onChange={(e) => set('nombre', e.target.value)}
-          error={errores.nombre}
-        />
+            <Campo
+              id="nombre"
+              etiqueta="Nombre"
+              placeholder="José Rodríguez"
+              value={campos.nombre}
+              onChange={(e) => set('nombre', e.target.value)}
+              error={errores.nombre}
+            />
+          </>
+        )}
 
         <div className="flex gap-3">
           <Campo
@@ -112,17 +159,19 @@ export default function FormularioDeuda({ abierto, alCerrar, alGuardar }) {
           />
         </div>
 
-        <Campo
-          id="telefonoCliente"
-          etiqueta="Celular del cliente"
-          type="tel"
-          inputMode="numeric"
-          placeholder="0412-1234567"
-          value={campos.telefono}
-          onChange={(e) => set('telefono', e.target.value)}
-          error={errores.telefono}
-          ayuda="Opcional, pero sin él no puedes mandarle el recordatorio."
-        />
+        {!editando && (
+          <Campo
+            id="telefonoCliente"
+            etiqueta="Celular del cliente"
+            type="tel"
+            inputMode="numeric"
+            placeholder="0412-1234567"
+            value={campos.telefono}
+            onChange={(e) => set('telefono', e.target.value)}
+            error={errores.telefono}
+            ayuda="Opcional, pero sin él no puedes mandarle el recordatorio."
+          />
+        )}
 
         <Campo
           id="notas"
@@ -136,7 +185,7 @@ export default function FormularioDeuda({ abierto, alCerrar, alGuardar }) {
         {errorGeneral && <Alerta>{errorGeneral}</Alerta>}
 
         <Boton type="submit" cargando={guardando}>
-          {guardando ? 'Guardando…' : 'Registrar fiado'}
+          {guardando ? 'Guardando…' : editando ? 'Guardar cambios' : 'Registrar fiado'}
         </Boton>
       </form>
     </Hoja>

@@ -1,24 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Plus, RefreshCw, Wallet } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Plus, RefreshCw, Search, Wallet, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { listarAbonos, listarDeudas } from '../lib/datos'
+import { borrarDeuda, listarAbonos, listarDeudas, marcarReclamo } from '../lib/datos'
 import { mensajeDeError } from '../lib/errores'
-import { formatearMonto } from '../lib/formato'
+import { formatearMonto, normalizarCedula } from '../lib/formato'
 import { claseDeuda } from '../lib/fechas'
 import { abrirWhatsApp } from '../lib/whatsapp'
 import { Alerta, Boton, Cargando, Vacio } from '../components/UI'
 import TarjetaDeuda from '../components/TarjetaDeuda'
 import FormularioDeuda from '../components/FormularioDeuda'
 import FormularioAbono from '../components/FormularioAbono'
+import FormularioTelefono from '../components/FormularioTelefono'
 
 const FILTROS = [
   { id: 'todas', etiqueta: 'Todas' },
   { id: 'por_vencer', etiqueta: 'Por vencer' },
   { id: 'vencida', etiqueta: 'Vencidas' },
+  { id: 'reclamo', etiqueta: 'En reclamo' },
   { id: 'pagada', etiqueta: 'Pagadas' },
 ]
 
-/** Lo que falta por cobrar de una deuda. */
 const saldoDe = (d) => Math.max(Number(d.amount) - Number(d.abonado ?? 0), 0)
 
 export default function Deudas() {
@@ -29,9 +30,17 @@ export default function Deudas() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
   const [filtro, setFiltro] = useState('todas')
-  const [formAbierto, setFormAbierto] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
+
+  const [creando, setCreando] = useState(false)
+  const [editando, setEditando] = useState(null)
   const [abonando, setAbonando] = useState(null)
+  const [pidiendoTelefono, setPidiendoTelefono] = useState(null)
   const [aviso, setAviso] = useState(null)
+
+  // Si el usuario llegó al teléfono desde el botón de cobro, al guardarlo se
+  // abre WhatsApp solo: era lo que quería hacer desde el principio.
+  const cobrarTrasGuardar = useRef(false)
 
   const cargar = useCallback(async ({ silencioso = false } = {}) => {
     if (!silencioso) setCargando(true)
@@ -40,8 +49,10 @@ export default function Deudas() {
       const [d, a] = await Promise.all([listarDeudas(), listarAbonos()])
       setDeudas(d)
       setAbonos(a)
+      return d
     } catch (fallo) {
       setError(mensajeDeError(fallo))
+      return null
     } finally {
       setCargando(false)
     }
@@ -76,20 +87,52 @@ export default function Deudas() {
     }
   }, [deudas, abonos])
 
-  const visibles = useMemo(
-    () => (filtro === 'todas' ? deudas : deudas.filter((d) => claseDeuda(d) === filtro)),
-    [deudas, filtro],
-  )
+  const visibles = useMemo(() => {
+    let lista = filtro === 'todas' ? deudas : deudas.filter((d) => claseDeuda(d) === filtro)
+
+    const q = busqueda.trim()
+    if (q) {
+      // Se busca por nombre y por cédula a la vez: el comerciante a veces
+      // recuerda una y a veces la otra.
+      const porNombre = q.toLowerCase()
+      const porCedula = normalizarCedula(q)
+      lista = lista.filter(
+        (d) =>
+          d.full_name.toLowerCase().includes(porNombre) ||
+          (porCedula.length >= 2 && d.cedula.includes(porCedula)),
+      )
+    }
+    return lista
+  }, [deudas, filtro, busqueda])
 
   const conteos = useMemo(() => {
-    const c = { todas: deudas.length, por_vencer: 0, vencida: 0, pagada: 0 }
+    const c = { todas: deudas.length, por_vencer: 0, vencida: 0, reclamo: 0, pagada: 0 }
     for (const d of deudas) c[claseDeuda(d)] += 1
     return c
   }, [deudas])
 
   function cobrar(deuda) {
-    if (!abrirWhatsApp({ deuda, comercio })) {
-      setAviso('Ese cliente no tiene teléfono registrado. Agrégalo al crear el próximo fiado.')
+    if (abrirWhatsApp({ deuda, comercio })) return
+    // Sin teléfono no hay a quién escribirle: se pide y después se cobra.
+    cobrarTrasGuardar.current = true
+    setPidiendoTelefono(deuda)
+  }
+
+  async function trasGuardarTelefono(deuda) {
+    const lista = await cargar({ silencioso: true })
+    if (!cobrarTrasGuardar.current) return
+    cobrarTrasGuardar.current = false
+    const fresca = lista?.find((d) => d.id === deuda.id)
+    if (fresca) abrirWhatsApp({ deuda: fresca, comercio })
+  }
+
+  async function accion(fn) {
+    setError(null)
+    try {
+      await fn()
+      await cargar({ silencioso: true })
+    } catch (fallo) {
+      setError(mensajeDeError(fallo))
     }
   }
 
@@ -116,10 +159,40 @@ export default function Deudas() {
         </div>
       </section>
 
-      <Boton onClick={() => setFormAbierto(true)}>
+      <Boton onClick={() => setCreando(true)}>
         <Plus className="size-5" aria-hidden="true" />
         Nuevo fiado
       </Boton>
+
+      {deudas.length > 4 && (
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
+            aria-hidden="true"
+          />
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por nombre o cédula"
+            aria-label="Buscar fiados"
+            className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pr-10 pl-9 text-base
+                       text-slate-900 placeholder:text-slate-400 focus:border-marca-500
+                       focus:ring-2 focus:ring-marca-100 focus:outline-none"
+          />
+          {busqueda && (
+            <button
+              type="button"
+              onClick={() => setBusqueda('')}
+              aria-label="Limpiar búsqueda"
+              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400
+                         hover:bg-slate-100"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
         {FILTROS.map(({ id, etiqueta }) => (
@@ -153,12 +226,20 @@ export default function Deudas() {
         <Cargando texto="Cargando tus fiados…" />
       ) : visibles.length === 0 ? (
         <Vacio
-          Icono={Wallet}
-          titulo={deudas.length === 0 ? 'Todavía no tienes fiados' : 'Nada en este filtro'}
+          Icono={busqueda ? Search : Wallet}
+          titulo={
+            busqueda
+              ? 'Ningún cliente con ese nombre'
+              : deudas.length === 0
+                ? 'Todavía no tienes fiados'
+                : 'Nada en este filtro'
+          }
           texto={
-            deudas.length === 0
-              ? 'Registra el primero y empieza a llevar la cuenta de quién te debe.'
-              : 'Prueba con otro filtro.'
+            busqueda
+              ? 'Prueba con otra parte del nombre o con la cédula.'
+              : deudas.length === 0
+                ? 'Registra el primero y empieza a llevar la cuenta de quién te debe.'
+                : 'Prueba con otro filtro.'
           }
         />
       ) : (
@@ -170,6 +251,13 @@ export default function Deudas() {
                 deuda={deuda}
                 alCobrar={cobrar}
                 alAbonar={setAbonando}
+                alEditar={setEditando}
+                alPonerTelefono={(d) => {
+                  cobrarTrasGuardar.current = false
+                  setPidiendoTelefono(d)
+                }}
+                alBorrar={(d) => accion(() => borrarDeuda(d.id))}
+                alReclamar={(d, activo) => accion(() => marcarReclamo(d.id, activo))}
               />
             ))}
           </ul>
@@ -186,15 +274,34 @@ export default function Deudas() {
       )}
 
       <FormularioDeuda
-        abierto={formAbierto}
-        alCerrar={() => setFormAbierto(false)}
+        abierto={creando || Boolean(editando)}
+        deuda={editando}
+        alCerrar={() => {
+          setCreando(false)
+          setEditando(null)
+        }}
         alGuardar={() => cargar({ silencioso: true })}
       />
 
       <FormularioAbono
         deuda={abonando}
+        abonos={abonos}
         alCerrar={() => setAbonando(null)}
-        alGuardar={() => cargar({ silencioso: true })}
+        alGuardar={async () => {
+          const lista = await cargar({ silencioso: true })
+          // La hoja sigue abierta tras borrar un abono: hay que refrescar la
+          // deuda que muestra, o seguiría enseñando el saldo viejo.
+          setAbonando((actual) => (actual ? (lista?.find((d) => d.id === actual.id) ?? null) : null))
+        }}
+      />
+
+      <FormularioTelefono
+        deuda={pidiendoTelefono}
+        alCerrar={() => {
+          cobrarTrasGuardar.current = false
+          setPidiendoTelefono(null)
+        }}
+        alGuardar={() => trasGuardarTelefono(pidiendoTelefono)}
       />
     </div>
   )

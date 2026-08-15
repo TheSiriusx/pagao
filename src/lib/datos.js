@@ -18,7 +18,7 @@ export async function listarDeudas() {
   return data ?? []
 }
 
-export async function crearDeuda({ cedula, nombre, monto, vence, notas, telefono }) {
+export async function crearDeuda({ cedula, nombre, monto, vence, notas, telefono, telefono2, direccion }) {
   const { data, error } = await supabase.rpc('create_debt', {
     p_cedula: normalizarCedula(cedula),
     p_full_name: nombre.trim(),
@@ -26,9 +26,29 @@ export async function crearDeuda({ cedula, nombre, monto, vence, notas, telefono
     p_due_date: vence,
     p_notes: notas?.trim() || null,
     p_phone: normalizarTelefono(telefono),
+    p_phone2: normalizarTelefono(telefono2),
+    p_address: direccion?.trim() || null,
   })
   if (error) throw error
   return data
+}
+
+/** Un renglón por cliente, con lo que te debe y si está en mora contigo. */
+export async function listarClientes() {
+  const { data, error } = await supabase.rpc('list_clients', {}, { get: true })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function actualizarCliente({ debtorId, nombre, telefono, telefono2, direccion }) {
+  const { error } = await supabase.rpc('update_client', {
+    p_debtor_id: debtorId,
+    p_full_name: nombre.trim(),
+    p_phone: normalizarTelefono(telefono),
+    p_phone2: normalizarTelefono(telefono2),
+    p_address: direccion?.trim() || null,
+  })
+  if (error) throw error
 }
 
 export async function actualizarDeuda({ id, monto, vence, notas }) {

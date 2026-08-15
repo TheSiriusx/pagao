@@ -199,12 +199,13 @@ export default async function ({ navegador, base, host, suite, capturar }) {
   await p.getByRole('button', { name: 'Ajustes' }).click()
   await p.waitForSelector('#ajNegocio')
   await capturar(p, '14-ajustes')
-  s.check('muestra el plan', await p.getByText('Gratis').first().isVisible())
-  s.check(
-    'explica que el plan se activa a mano',
-    await p.getByText(/no se puede cambiar desde la app/).isVisible(),
-  )
   s.check('trae los datos del negocio cargados', (await p.inputValue('#ajNegocio')) === 'Bodega La Esquina')
+  s.check('trae el Pago Móvil cargado', (await p.inputValue('#ajTelefonoPago')).length > 0)
+  s.check('muestra con qué correo entraste', await p.getByText('maria@ejemplo.com').isVisible())
+  s.check(
+    'ya no hay sección de suscripción',
+    (await p.getByText('Tu plan').count()) === 0,
+  )
 
   // ------------------------------------------------------------- cierre ----
   s.seccion('Salud general')

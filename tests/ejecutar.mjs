@@ -15,6 +15,7 @@ import aislamiento from './01-aislamiento.mjs'
 import abonos from './02-abonos.mjs'
 import edicion from './03-edicion.mjs'
 import vencidas from './04-vencidas.mjs'
+import clientes from './05-clientes.mjs'
 
 const SUITES = [
   ['00', esquema],
@@ -22,6 +23,7 @@ const SUITES = [
   ['02', abonos],
   ['03', edicion],
   ['04', vencidas],
+  ['05', clientes],
 ]
 
 const proyecto = URL_BASE.replace('https://', '').split('.')[0]

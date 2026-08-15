@@ -28,6 +28,8 @@ const FIRMAS = {
   set_debt_disputed: { p_debt_id: '00000000-0000-0000-0000-000000000000', p_disputed: true },
   sweep_my_overdue: {},
   cron_vencidas_activo: {},
+  list_clients: {},
+  update_client: { p_debtor_id: '00000000-0000-0000-0000-000000000000', p_full_name: 'X' },
 }
 
 export default async function () {
@@ -45,7 +47,7 @@ export default async function () {
   }
 
   s.seccion('Las tablas no se leen sin sesión')
-  for (const t of ['debtors', 'score_history', 'merchants', 'debts', 'payments']) {
+  for (const t of ['debtors', 'score_history', 'merchants', 'debts', 'payments', 'merchant_debtors']) {
     const r = await api(`/rest/v1/${t}?select=*&limit=1`)
     s.check(`${t} rechaza al rol anónimo`, r.estado === 401 || r.estado === 403, `HTTP ${r.estado}`)
   }

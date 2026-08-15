@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, LogOut, Zap } from 'lucide-react'
+import { Check, LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { actualizarComercio } from '../lib/datos'
 import { mensajeDeError } from '../lib/errores'
@@ -19,10 +19,6 @@ export default function Ajustes() {
   const [errores, setErrores] = useState({})
   const [errorGeneral, setErrorGeneral] = useState(null)
   const [guardado, setGuardado] = useState(false)
-
-  const esPro = comercio.plan !== 'free'
-  const vence = comercio.plan_expires_at ? new Date(comercio.plan_expires_at) : null
-  const vencido = esPro && vence && vence < new Date()
 
   async function guardar(evento) {
     evento.preventDefault()
@@ -62,47 +58,6 @@ export default function Ajustes() {
 
   return (
     <div className="space-y-4">
-      <section
-        className={`rounded-2xl p-5 ring-1 ${
-          esPro && !vencido ? 'bg-marca-50 ring-marca-100' : 'bg-white shadow-sm ring-slate-200'
-        }`}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm text-slate-500">Tu plan</p>
-            <p className="flex items-center gap-1.5 text-xl font-bold text-slate-900">
-              {esPro && !vencido && <Zap className="size-5 text-marca-600" aria-hidden="true" />}
-              {vencido ? 'Pro vencido' : esPro ? 'Pro' : 'Gratis'}
-            </p>
-          </div>
-        </div>
-
-        <p className="mt-2 text-sm text-slate-600">
-          {vencido ? (
-            <>Se venció el {vence.toLocaleDateString('es-VE')}. Cuenta como gratis.</>
-          ) : esPro ? (
-            <>
-              Consultas ilimitadas
-              {vence && <> hasta el {vence.toLocaleDateString('es-VE')}</>}.
-            </>
-          ) : (
-            <>
-              Fiados ilimitados y <strong>1 consulta</strong> a la Red Pagao. Llevas{' '}
-              {comercio.free_queries_used ?? 0} usada
-              {(comercio.free_queries_used ?? 0) === 1 ? '' : 's'}.
-            </>
-          )}
-        </p>
-
-        {(!esPro || vencido) && (
-          <Alerta tono="info" className="mt-4">
-            Los pagos todavía no están conectados. Para probar el Pro, cámbialo a mano en Supabase →
-            Table Editor → <code>merchants</code> → tu fila → <code>plan</code> = <code>pro</code>.
-            El plan no se puede cambiar desde la app a propósito.
-          </Alerta>
-        )}
-      </section>
-
       <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
         <h2 className="mb-4 font-bold text-slate-900">Datos del negocio</h2>
 

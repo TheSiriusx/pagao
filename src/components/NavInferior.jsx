@@ -1,7 +1,8 @@
-import { Search, Settings, Wallet } from 'lucide-react'
+import { Search, Settings, Users, Wallet } from 'lucide-react'
 
 const PESTANAS = [
   { id: 'deudas', etiqueta: 'Fiados', Icono: Wallet },
+  { id: 'clientes', etiqueta: 'Clientes', Icono: Users },
   { id: 'red', etiqueta: 'Red Pagao', Icono: Search },
   { id: 'ajustes', etiqueta: 'Ajustes', Icono: Settings },
 ]

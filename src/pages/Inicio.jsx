@@ -3,11 +3,13 @@ import { useAuth } from '../context/AuthContext'
 import { Logo } from '../components/UI'
 import NavInferior from '../components/NavInferior'
 import Deudas from './Deudas'
+import Clientes from './Clientes'
 import RedPagao from './RedPagao'
 import Ajustes from './Ajustes'
 
 const PANTALLAS = {
   deudas: Deudas,
+  clientes: Clientes,
   red: RedPagao,
   ajustes: Ajustes,
 }

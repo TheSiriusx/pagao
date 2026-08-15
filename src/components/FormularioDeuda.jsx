@@ -5,7 +5,16 @@ import { cedulaValida, formatearCedula, telefonoValido } from '../lib/formato'
 import { isoDeHoy } from '../lib/fechas'
 import { Alerta, Boton, Campo, Hoja } from './UI'
 
-const VACIO = { cedula: '', nombre: '', monto: '', vence: isoDeHoy(15), notas: '', telefono: '' }
+const VACIO = {
+  cedula: '',
+  nombre: '',
+  monto: '',
+  vence: isoDeHoy(15),
+  notas: '',
+  telefono: '',
+  telefono2: '',
+  direccion: '',
+}
 
 /**
  * Sirve para dos cosas: registrar un fiado nuevo y corregir uno existente.
@@ -30,6 +39,8 @@ export default function FormularioDeuda({ abierto, deuda, alCerrar, alGuardar })
         vence: String(deuda.due_date).slice(0, 10),
         notas: deuda.notes ?? '',
         telefono: '',
+        telefono2: '',
+        direccion: '',
       })
     } else {
       setCampos(VACIO)
@@ -58,6 +69,9 @@ export default function FormularioDeuda({ abierto, deuda, alCerrar, alGuardar })
       }
       if (campos.telefono.trim() && !telefonoValido(campos.telefono)) {
         nuevos.telefono = 'Ese número no parece un celular venezolano.'
+      }
+      if (campos.telefono2.trim() && !telefonoValido(campos.telefono2)) {
+        nuevos.telefono2 = 'Ese número no parece un celular venezolano.'
       }
     }
 
@@ -160,17 +174,40 @@ export default function FormularioDeuda({ abierto, deuda, alCerrar, alGuardar })
         </div>
 
         {!editando && (
-          <Campo
-            id="telefonoCliente"
-            etiqueta="Celular del cliente"
-            type="tel"
-            inputMode="numeric"
-            placeholder="0412-1234567"
-            value={campos.telefono}
-            onChange={(e) => set('telefono', e.target.value)}
-            error={errores.telefono}
-            ayuda="Opcional, pero sin él no puedes mandarle el recordatorio."
-          />
+          <>
+            <Campo
+              id="telefonoCliente"
+              etiqueta="Celular del cliente"
+              type="tel"
+              inputMode="numeric"
+              placeholder="0412-1234567"
+              value={campos.telefono}
+              onChange={(e) => set('telefono', e.target.value)}
+              error={errores.telefono}
+              ayuda="Sin él no puedes mandarle el recordatorio por WhatsApp."
+            />
+
+            <Campo
+              id="telefono2Cliente"
+              etiqueta="Otro teléfono"
+              type="tel"
+              inputMode="numeric"
+              placeholder="0212-5551234"
+              value={campos.telefono2}
+              onChange={(e) => set('telefono2', e.target.value)}
+              error={errores.telefono2}
+              ayuda="De un familiar o del trabajo, por si no contesta."
+            />
+
+            <Campo
+              id="direccionCliente"
+              etiqueta="Dónde vive"
+              placeholder="Calle Sucre, casa 24, al lado de la panadería"
+              value={campos.direccion}
+              onChange={(e) => set('direccion', e.target.value)}
+              ayuda="Solo la ves tú. No se comparte con la Red Pagao."
+            />
+          </>
         )}
 
         <Campo

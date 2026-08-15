@@ -45,19 +45,21 @@ Reglas que sostienen todo:
 
 ## Auth
 
-Por ahora se entra con **correo y contraseña**. En Supabase:
+Se entra con **correo y contraseña**. En Supabase:
 
 **Authentication → Sign In / Providers → Email** → activado, y **Confirm email**
 apagado. Así el registro entra de una vez y no hace falta ningún servicio
 externo.
 
-El OTP por teléfono queda pendiente: Supabase exige un proveedor de SMS
-(Twilio) hasta para los códigos de prueba. Cuando se retome, el cambio es solo
-`src/pages/Login.jsx` — sigue habiendo sesión de Auth, así que `auth.uid()`
-existe y ni las políticas RLS ni las RPC se tocan.
+El OTP por SMS quedó descartado: Supabase exige un proveedor (Twilio) hasta
+para los códigos de prueba, y cada mensaje a Venezuela cuesta más que la
+consulta de score que se cobra. El teléfono del comerciante se sigue pidiendo
+en el registro del negocio — es contacto, no credencial — y `merchants.phone`
+es obligatorio.
 
-Nota: entrando por correo, `merchants.phone` ya no sale de la sesión, así que
-el registro del negocio lo pide como campo obligatorio.
+Pendiente: **recuperar la contraseña**. Necesita un SMTP configurado en
+Supabase (el integrado solo sirve para pruebas, con un límite de pocos correos
+por hora).
 
 ## Estructura
 

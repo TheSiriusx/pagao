@@ -7,11 +7,12 @@ import { Alerta, Boton, Campo, Logo } from '../components/UI'
 /**
  * Entrada por correo y contraseña.
  *
- * Es un reemplazo temporal del OTP por SMS: Supabase exige un proveedor de
- * SMS (Twilio) hasta para los códigos de prueba, y eso frenaba el arranque.
- * Lo importante es que sigue habiendo sesión de Auth, así que auth.uid()
- * existe y ni las políticas RLS ni las RPC del paso 1 cambian una línea.
- * Cuando toque volver al teléfono, se cambia este archivo y nada más.
+ * Es el método definitivo de la app: se descartó el OTP por SMS porque
+ * Supabase exige un proveedor (Twilio) hasta para los códigos de prueba, y
+ * cada mensaje a Venezuela cuesta más que la consulta de score que se cobra.
+ *
+ * El teléfono del comerciante se sigue pidiendo, pero en el registro del
+ * negocio: es el número de contacto, no la credencial.
  */
 export default function Login() {
   const [modo, setModo] = useState('entrar') // entrar | crear

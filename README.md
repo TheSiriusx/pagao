@@ -61,6 +61,18 @@ Pendiente: **recuperar la contraseña**. Necesita un SMTP configurado en
 Supabase (el integrado solo sirve para pruebas, con un límite de pocos correos
 por hora).
 
+## Pruebas
+
+```bash
+npm test
+```
+
+89 comprobaciones contra la base de datos real, usando solo la anon key — las
+mismas credenciales que lleva el navegador de un comerciante. Si una prueba
+consigue hacer algo, un usuario también puede.
+
+Detalle y limpieza de los datos de prueba en [tests/README.md](tests/README.md).
+
 ## Estructura
 
 ```

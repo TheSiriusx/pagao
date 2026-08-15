@@ -26,6 +26,8 @@ const FIRMAS = {
   delete_debt: { p_debt_id: '00000000-0000-0000-0000-000000000000' },
   delete_payment: { p_payment_id: '00000000-0000-0000-0000-000000000000' },
   set_debt_disputed: { p_debt_id: '00000000-0000-0000-0000-000000000000', p_disputed: true },
+  sweep_my_overdue: {},
+  cron_vencidas_activo: {},
 }
 
 export default async function () {

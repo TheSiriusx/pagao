@@ -1,20 +1,42 @@
 # Pruebas del sistema
 
 ```bash
-npm test
+npm test          # base de datos y reglas, contra Supabase real
+npm run test:ui   # interfaz y PWA, con un navegador real
+npm run test:todo # las dos cosas
 ```
 
-Corre las cuatro suites contra la base de datos real y sale con código 1 si
-algo falla.
+Ambas salen con código 1 si algo falla.
 
-## Qué comprueban
+## Pruebas de datos — `npm test`
 
 | Suite | Qué verifica |
 |---|---|
-| `00-esquema` | Que las 11 funciones RPC existan y que ninguna tabla ni función se pueda tocar sin sesión |
+| `00-esquema` | Que las 13 funciones RPC existan y que ninguna tabla ni función se pueda tocar sin sesión |
 | `01-aislamiento` | Que un comerciante no vea ni escriba nada de otro, que el paywall no se pueda editar desde el navegador y que la cédula se normalice |
 | `02-abonos` | Que los abonos cuadren, que no se pueda abonar de más y que el último abono dispare el trigger del score |
 | `03-edicion` | Editar, borrar, reclamos y teléfono del cliente. Que una deuda pagada quede congelada |
+| `04-vencidas` | El barrido de los 30 días: dónde cae el corte, que solo barra lo propio y que caer en vencida reste 30 puntos |
+
+## Pruebas de interfaz — `npm run test:ui`
+
+Manejan un Chromium real a **320px de ancho**, que es la pantalla más angosta
+que la app promete soportar.
+
+| Suite | Qué verifica |
+|---|---|
+| `ui/01-flujo` | Recorrido completo: entrar, registrar el negocio, crear un fiado, abonar, corregir, reclamar, consultar la Red Pagao, toparse con el paywall y revisar ajustes |
+| `ui/02-pwa` | Manifest, iconos, registro del service worker, que la app se dibuje sin conexión y que las consultas de score **nunca** queden en caché |
+
+Aquí Supabase está **simulado en memoria** (`ui/simulador.mjs`). Las pruebas de
+interfaz no deben tocar la base real: serían lentas, dejarían basura en la Red
+Pagao y fallarían por cosas ajenas al frontend. Lo que se comprueba es que las
+pantallas dibujen, que los formularios validen y que los errores del servidor
+se muestren en español; que las reglas del servidor funcionen de verdad ya lo
+cubren las suites de datos.
+
+Cada pantalla se guarda en `tests/ui/capturas/` — útil para mirar un cambio de
+diseño antes y después. No se versionan.
 
 ## Por qué solo usan la anon key
 
@@ -68,8 +90,14 @@ prueba. Espera un rato y vuelve.
 
 ## Lo que NO cubren
 
-- **La interfaz.** No se renderiza ninguna pantalla: esto prueba la base de
-  datos y las reglas, no los botones.
-- **El job de pg_cron** que marca vencidas las deudas de más de 30 días. Solo
-  se puede comprobar dejando pasar el tiempo o llamando al `update` a mano.
-- **El service worker** y el modo sin señal.
+- **Un teléfono de verdad.** Chromium a 320px se acerca, pero no reemplaza
+  probar en el aparato: el teclado que tapa medio formulario, el pulgar que no
+  alcanza, la pantalla al sol.
+- **Que el cron dispare a las 4am.** Se comprueba que el job esté programado y
+  que la regla del barrido funcione, pero no que el planificador de Supabase
+  lo ejecute puntualmente.
+- **WhatsApp.** Se verifica que se arme el mensaje, no que `wa.me` abra la app
+  en el teléfono.
+- **Supabase real desde la interfaz.** Las pruebas de UI usan el simulador. Un
+  cambio en las RPC que rompa el frontend lo cazan las suites de datos, no
+  estas.

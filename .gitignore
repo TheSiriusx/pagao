@@ -8,3 +8,6 @@ dist/
 
 # Ajustes locales de Claude Code, propios de esta maquina
 .claude/settings.local.json
+
+# Capturas que generan las pruebas de interfaz
+tests/ui/capturas/

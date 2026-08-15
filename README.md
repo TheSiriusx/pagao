@@ -64,12 +64,16 @@ por hora).
 ## Pruebas
 
 ```bash
-npm test
+npm run test:todo
 ```
 
-89 comprobaciones contra la base de datos real, usando solo la anon key — las
-mismas credenciales que lleva el navegador de un comerciante. Si una prueba
-consigue hacer algo, un usuario también puede.
+Dos capas:
+
+- **`npm test`** — las reglas, contra la base de datos real y usando solo la
+  anon key: las mismas credenciales que lleva el navegador de un comerciante.
+  Si una prueba consigue hacer algo, un usuario también puede.
+- **`npm run test:ui`** — la interfaz, con un Chromium real a 320px y Supabase
+  simulado en memoria. Incluye el service worker y la lectura sin señal.
 
 Detalle y limpieza de los datos de prueba en [tests/README.md](tests/README.md).
 

@@ -102,16 +102,19 @@ export default async function () {
   const cB2 = ((await rpc('list_clients', B.token)).datos ?? []).find((c) => c.cedula === CED)
   s.check('la ficha de B no se movió', cB2?.full_name === 'Jose R.', cB2?.full_name)
 
-  s.seccion('No se toca la ficha ajena')
-  const ajena = await rpc('update_client', B.token, {
+  s.seccion('Editar apunta siempre a la ficha propia')
+  // B manda el debtor_id del mismo deudor. Como B TIENE ficha propia de esa
+  // persona, lo que edita es la suya: la de A ni se entera.
+  await rpc('update_client', B.token, {
     p_debtor_id: cA.debtor_id,
-    p_full_name: 'Secuestrado',
-    p_address: 'Robada',
+    p_full_name: 'El compadre de la esquina',
+    p_address: 'Frente al liceo',
   })
-  // B sí tiene ficha propia de ese deudor, así que edita LA SUYA, no la de A.
   const cA3 = ((await rpc('list_clients', A.token)).datos ?? []).find((c) => c.cedula === CED)
   s.check('A conserva su nombre', cA3?.full_name === 'José A. Rodríguez', cA3?.full_name)
   s.check('A conserva su dirección', cA3?.address === 'Calle Sucre, casa 24', cA3?.address)
+  const cB3 = ((await rpc('list_clients', B.token)).datos ?? []).find((c) => c.cedula === CED)
+  s.check('B sí ve su propio cambio', cB3?.full_name === 'El compadre de la esquina', cB3?.full_name)
 
   const C = await crearComerciante('cliC')
   s.check(
@@ -140,9 +143,15 @@ export default async function () {
   s.seccion('list_debts usa el nombre de la ficha privada')
   const deudasB = (await rpc('list_debts', B.token)).datos ?? []
   s.check(
-    'B ve su deuda con el nombre que él puso',
-    deudasB[0]?.full_name === 'Jose R.',
+    'la deuda de B sale con el nombre de SU ficha',
+    deudasB[0]?.full_name === 'El compadre de la esquina',
     deudasB[0]?.full_name,
+  )
+  const deudasA = (await rpc('list_debts', A.token)).datos ?? []
+  s.check(
+    'y la de A con el de la suya, para el mismo deudor',
+    deudasA[0]?.full_name === 'José A. Rodríguez',
+    deudasA[0]?.full_name,
   )
 
   return s.resultado()

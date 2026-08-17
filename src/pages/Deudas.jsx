@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, RefreshCw, Search, Wallet, X } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { ChevronDown, Plus, RefreshCw, Search, Wallet, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { borrarDeuda, listarAbonos, listarDeudas, marcarReclamo } from '../lib/datos'
+import { useListaPaginada } from '../hooks/useListaPaginada'
+import { borrarDeuda, listarDeudas, marcarReclamo, obtenerResumen } from '../lib/datos'
 import { mensajeDeError } from '../lib/errores'
-import { formatearMonto, normalizarCedula } from '../lib/formato'
-import { claseDeuda } from '../lib/fechas'
+import { formatearMonto } from '../lib/formato'
 import { abrirWhatsApp } from '../lib/whatsapp'
 import { Alerta, Boton, Cargando, Vacio } from '../components/UI'
 import TarjetaDeuda from '../components/TarjetaDeuda'
@@ -13,24 +13,20 @@ import FormularioAbono from '../components/FormularioAbono'
 import FormularioTelefono from '../components/FormularioTelefono'
 
 const FILTROS = [
-  { id: 'todas', etiqueta: 'Todas' },
-  { id: 'por_vencer', etiqueta: 'Por vencer' },
-  { id: 'vencida', etiqueta: 'Vencidas' },
-  { id: 'reclamo', etiqueta: 'En reclamo' },
-  { id: 'pagada', etiqueta: 'Pagadas' },
+  { id: null, etiqueta: 'Todas', conteo: 'n_todas' },
+  { id: 'por_vencer', etiqueta: 'Por vencer', conteo: 'n_por_vencer' },
+  { id: 'vencida', etiqueta: 'Vencidas', conteo: 'n_vencida' },
+  { id: 'reclamo', etiqueta: 'En reclamo', conteo: 'n_reclamo' },
+  { id: 'pagada', etiqueta: 'Pagadas', conteo: 'n_pagada' },
 ]
-
-const saldoDe = (d) => Math.max(Number(d.amount) - Number(d.abonado ?? 0), 0)
 
 export default function Deudas() {
   const { comercio } = useAuth()
 
-  const [deudas, setDeudas] = useState([])
-  const [abonos, setAbonos] = useState([])
-  const [cargando, setCargando] = useState(true)
-  const [error, setError] = useState(null)
-  const [filtro, setFiltro] = useState('todas')
+  const [filtro, setFiltro] = useState(null)
   const [busqueda, setBusqueda] = useState('')
+  const [resumen, setResumen] = useState(null)
+  const [errorResumen, setErrorResumen] = useState(null)
 
   const [creando, setCreando] = useState(false)
   const [editando, setEditando] = useState(null)
@@ -38,133 +34,86 @@ export default function Deudas() {
   const [pidiendoTelefono, setPidiendoTelefono] = useState(null)
   const [aviso, setAviso] = useState(null)
 
-  // Si el usuario llegó al teléfono desde el botón de cobro, al guardarlo se
-  // abre WhatsApp solo: era lo que quería hacer desde el principio.
-  const cobrarTrasGuardar = useRef(false)
+  const cargar = useCallback(
+    ({ filtro: clase, buscar, limite, desde }) => listarDeudas({ clase, buscar, limite, desde }),
+    [],
+  )
+  const lista = useListaPaginada(cargar, { filtro, buscar: busqueda })
 
-  const cargar = useCallback(async ({ silencioso = false } = {}) => {
-    if (!silencioso) setCargando(true)
-    setError(null)
+  // Los totales se piden aparte y siempre completos: sumarlos sobre la página
+  // visible daría un número equivocado en cuanto haya más de una.
+  const cargarResumen = useCallback(async () => {
+    setErrorResumen(null)
     try {
-      const [d, a] = await Promise.all([listarDeudas(), listarAbonos()])
-      setDeudas(d)
-      setAbonos(a)
-      return d
+      setResumen(await obtenerResumen())
     } catch (fallo) {
-      setError(mensajeDeError(fallo))
-      return null
-    } finally {
-      setCargando(false)
+      setErrorResumen(mensajeDeError(fallo))
     }
   }, [])
 
   useEffect(() => {
-    cargar()
-  }, [cargar])
+    cargarResumen()
+  }, [cargarResumen])
 
-  // Se calcula sobre la lista completa, no sobre la filtrada: el resumen
-  // siempre habla de todo el negocio.
-  const resumen = useMemo(() => {
-    const pendientes = deudas.filter((d) => d.status !== 'paid')
-    const vencidas = pendientes.filter((d) => claseDeuda(d) === 'vencida')
-
-    // "Cobrado este mes" sale de los abonos, no de las deudas saldadas: un
-    // abono de $10 en una deuda a medias también es plata que entró.
-    const ahora = new Date()
-    const cobradoMes = abonos
-      .filter((a) => {
-        const p = new Date(a.paid_at)
-        return p.getFullYear() === ahora.getFullYear() && p.getMonth() === ahora.getMonth()
-      })
-      .reduce((t, a) => t + Number(a.amount), 0)
-
-    return {
-      // Suma de SALDOS, no de montos: lo que abonaron ya no te lo deben.
-      porCobrar: pendientes.reduce((t, d) => t + saldoDe(d), 0),
-      vencido: vencidas.reduce((t, d) => t + saldoDe(d), 0),
-      cobradoMes,
-      clientes: new Set(pendientes.map((d) => d.debtor_id)).size,
-    }
-  }, [deudas, abonos])
-
-  const visibles = useMemo(() => {
-    let lista = filtro === 'todas' ? deudas : deudas.filter((d) => claseDeuda(d) === filtro)
-
-    const q = busqueda.trim()
-    if (q) {
-      // Se busca por nombre y por cédula a la vez: el comerciante a veces
-      // recuerda una y a veces la otra.
-      const porNombre = q.toLowerCase()
-      const porCedula = normalizarCedula(q)
-      lista = lista.filter(
-        (d) =>
-          d.full_name.toLowerCase().includes(porNombre) ||
-          (porCedula.length >= 2 && d.cedula.includes(porCedula)),
-      )
-    }
-    return lista
-  }, [deudas, filtro, busqueda])
-
-  const conteos = useMemo(() => {
-    const c = { todas: deudas.length, por_vencer: 0, vencida: 0, reclamo: 0, pagada: 0 }
-    for (const d of deudas) c[claseDeuda(d)] += 1
-    return c
-  }, [deudas])
+  async function refrescar() {
+    await Promise.all([lista.recargar(), cargarResumen()])
+  }
 
   function cobrar(deuda) {
     if (abrirWhatsApp({ deuda, comercio })) return
-    // Sin teléfono no hay a quién escribirle: se pide y después se cobra.
-    cobrarTrasGuardar.current = true
-    setPidiendoTelefono(deuda)
+    setPidiendoTelefono({ ...deuda, cobrarDespues: true })
   }
 
   async function trasGuardarTelefono(deuda) {
-    const lista = await cargar({ silencioso: true })
-    if (!cobrarTrasGuardar.current) return
-    cobrarTrasGuardar.current = false
-    const fresca = lista?.find((d) => d.id === deuda.id)
+    await refrescar()
+    if (!deuda?.cobrarDespues) return
+    const frescas = await listarDeudas({ buscar: deuda.cedula, limite: 5 })
+    const fresca = frescas.find((d) => d.id === deuda.id)
     if (fresca) abrirWhatsApp({ deuda: fresca, comercio })
   }
 
   async function accion(fn) {
-    setError(null)
     try {
       await fn()
-      await cargar({ silencioso: true })
+      await refrescar()
     } catch (fallo) {
-      setError(mensajeDeError(fallo))
+      setAviso(mensajeDeError(fallo))
     }
   }
+
+  const sinNada = lista.items.length === 0 && !lista.cargando
 
   return (
     <div className="space-y-4">
       <section className="rounded-2xl bg-noche p-5 text-white">
         <p className="text-sm text-slate-300">Te deben</p>
-        <p className="text-3xl font-bold">{formatearMonto(resumen.porCobrar)}</p>
+        <p className="text-3xl font-bold">{formatearMonto(resumen?.por_cobrar ?? 0)}</p>
         <p className="mt-0.5 text-sm text-slate-400">
-          {resumen.clientes} {resumen.clientes === 1 ? 'cliente' : 'clientes'}
+          {resumen?.clientes ?? 0} {resumen?.clientes === 1 ? 'cliente' : 'clientes'}
         </p>
 
         <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
           <div>
             <p className="text-xs text-slate-400">Vencido</p>
-            <p className={`font-semibold ${resumen.vencido > 0 ? 'text-red-400' : 'text-slate-300'}`}>
-              {formatearMonto(resumen.vencido)}
+            <p className={`font-semibold ${resumen?.vencido > 0 ? 'text-red-400' : 'text-slate-300'}`}>
+              {formatearMonto(resumen?.vencido ?? 0)}
             </p>
           </div>
           <div>
             <p className="text-xs text-slate-400">Cobrado este mes</p>
-            <p className="font-semibold text-marca-500">{formatearMonto(resumen.cobradoMes)}</p>
+            <p className="font-semibold text-marca-500">{formatearMonto(resumen?.cobrado_mes ?? 0)}</p>
           </div>
         </div>
       </section>
+
+      {errorResumen && <Alerta>{errorResumen}</Alerta>}
 
       <Boton onClick={() => setCreando(true)}>
         <Plus className="size-5" aria-hidden="true" />
         Nuevo fiado
       </Boton>
 
-      {deudas.length > 4 && (
+      {(resumen?.n_todas ?? 0) > 4 && (
         <div className="relative">
           <Search
             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
@@ -185,8 +134,7 @@ export default function Deudas() {
               type="button"
               onClick={() => setBusqueda('')}
               aria-label="Limpiar búsqueda"
-              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400
-                         hover:bg-slate-100"
+              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
             >
               <X className="size-4" aria-hidden="true" />
             </button>
@@ -195,49 +143,47 @@ export default function Deudas() {
       )}
 
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-        {FILTROS.map(({ id, etiqueta }) => (
+        {FILTROS.map(({ id, etiqueta, conteo }) => (
           <button
-            key={id}
+            key={etiqueta}
             type="button"
             onClick={() => setFiltro(id)}
             className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-medium transition ${
-              filtro === id
-                ? 'bg-slate-900 text-white'
-                : 'bg-white text-slate-600 ring-1 ring-slate-200'
+              filtro === id ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200'
             }`}
           >
-            {etiqueta} {conteos[id] > 0 && <span className="opacity-60">{conteos[id]}</span>}
+            {etiqueta} {resumen?.[conteo] > 0 && <span className="opacity-60">{resumen[conteo]}</span>}
           </button>
         ))}
       </div>
 
       {aviso && <Alerta tono="info">{aviso}</Alerta>}
 
-      {error && (
+      {lista.error && (
         <Alerta>
-          {error}
-          <button type="button" onClick={() => cargar()} className="ml-2 font-semibold underline">
+          {lista.error}
+          <button type="button" onClick={refrescar} className="ml-2 font-semibold underline">
             Reintentar
           </button>
         </Alerta>
       )}
 
-      {cargando ? (
+      {lista.cargando ? (
         <Cargando texto="Cargando tus fiados…" />
-      ) : visibles.length === 0 ? (
+      ) : sinNada ? (
         <Vacio
           Icono={busqueda ? Search : Wallet}
           titulo={
             busqueda
               ? 'Ningún cliente con ese nombre'
-              : deudas.length === 0
+              : (resumen?.n_todas ?? 0) === 0
                 ? 'Todavía no tienes fiados'
                 : 'Nada en este filtro'
           }
           texto={
             busqueda
               ? 'Prueba con otra parte del nombre o con la cédula.'
-              : deudas.length === 0
+              : (resumen?.n_todas ?? 0) === 0
                 ? 'Registra el primero y empieza a llevar la cuenta de quién te debe.'
                 : 'Prueba con otro filtro.'
           }
@@ -245,26 +191,30 @@ export default function Deudas() {
       ) : (
         <>
           <ul className="space-y-3">
-            {visibles.map((deuda) => (
+            {lista.items.map((deuda) => (
               <TarjetaDeuda
                 key={deuda.id}
                 deuda={deuda}
                 alCobrar={cobrar}
                 alAbonar={setAbonando}
                 alEditar={setEditando}
-                alPonerTelefono={(d) => {
-                  cobrarTrasGuardar.current = false
-                  setPidiendoTelefono(d)
-                }}
+                alPonerTelefono={setPidiendoTelefono}
                 alBorrar={(d) => accion(() => borrarDeuda(d.id))}
                 alReclamar={(d, activo) => accion(() => marcarReclamo(d.id, activo))}
               />
             ))}
           </ul>
 
+          {lista.hayMas && (
+            <Boton variante="secundario" onClick={lista.cargarMas} cargando={lista.cargandoMas}>
+              <ChevronDown className="size-5" aria-hidden="true" />
+              {lista.cargandoMas ? 'Cargando…' : 'Ver más fiados'}
+            </Boton>
+          )}
+
           <button
             type="button"
-            onClick={() => cargar()}
+            onClick={refrescar}
             className="mx-auto flex items-center gap-1.5 py-2 text-sm text-slate-400 hover:text-slate-600"
           >
             <RefreshCw className="size-4" aria-hidden="true" />
@@ -280,27 +230,14 @@ export default function Deudas() {
           setCreando(false)
           setEditando(null)
         }}
-        alGuardar={() => cargar({ silencioso: true })}
+        alGuardar={refrescar}
       />
 
-      <FormularioAbono
-        deuda={abonando}
-        abonos={abonos}
-        alCerrar={() => setAbonando(null)}
-        alGuardar={async () => {
-          const lista = await cargar({ silencioso: true })
-          // La hoja sigue abierta tras borrar un abono: hay que refrescar la
-          // deuda que muestra, o seguiría enseñando el saldo viejo.
-          setAbonando((actual) => (actual ? (lista?.find((d) => d.id === actual.id) ?? null) : null))
-        }}
-      />
+      <FormularioAbono deuda={abonando} alCerrar={() => setAbonando(null)} alGuardar={refrescar} />
 
       <FormularioTelefono
         deuda={pidiendoTelefono}
-        alCerrar={() => {
-          cobrarTrasGuardar.current = false
-          setPidiendoTelefono(null)
-        }}
+        alCerrar={() => setPidiendoTelefono(null)}
         alGuardar={() => trasGuardarTelefono(pidiendoTelefono)}
       />
     </div>

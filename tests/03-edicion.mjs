@@ -73,7 +73,7 @@ export default async function () {
     'no se le puede marcar reclamo',
     fallaCon(await rpc('set_debt_disputed', A.token, { p_debt_id: d2, p_disputed: true }), 'ALREADY_PAID'),
   )
-  const abonoDeCerrada = ((await rpc('list_payments', A.token)).datos ?? []).find((p) => p.debt_id === d2)
+  const abonoDeCerrada = ((await rpc('list_payments', A.token, {})).datos ?? []).find((p) => p.debt_id === d2)
   s.check(
     'no se le pueden quitar abonos',
     fallaCon(await rpc('delete_payment', A.token, { p_payment_id: abonoDeCerrada.id }), 'DEBT_ALREADY_PAID'),
@@ -85,13 +85,13 @@ export default async function () {
   const del = await rpc('delete_debt', A.token, { p_debt_id: d3 })
   s.check('delete_debt responde bien', del.estado < 300, `HTTP ${del.estado}`)
   s.check('la deuda desapareció de la lista', !(await traerFiado(A.token, d3)))
-  const huerfanos = ((await rpc('list_payments', A.token)).datos ?? []).filter((p) => p.debt_id === d3)
+  const huerfanos = ((await rpc('list_payments', A.token, {})).datos ?? []).filter((p) => p.debt_id === d3)
   s.check('sus abonos cayeron en cascada', huerfanos.length === 0, `quedaron ${huerfanos.length}`)
 
   s.seccion('Borrar un abono suelto')
   const d4 = await crearFiado(A.token, { cedula: CED, monto: 90, vence: fecha(30) })
   await rpc('add_payment', A.token, { p_debt_id: d4, p_amount: 30 })
-  const abono = ((await rpc('list_payments', A.token)).datos ?? []).find((p) => p.debt_id === d4)
+  const abono = ((await rpc('list_payments', A.token, {})).datos ?? []).find((p) => p.debt_id === d4)
   s.check(
     'B no puede borrar el abono de A',
     fallaCon(await rpc('delete_payment', B.token, { p_payment_id: abono.id }), 'NOT_YOUR_PAYMENT'),

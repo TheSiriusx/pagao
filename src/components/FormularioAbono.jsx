@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
-import { abonar, borrarAbono, marcarPagada } from '../lib/datos'
+import { abonar, borrarAbono, listarAbonos, marcarPagada } from '../lib/datos'
 import { mensajeDeError } from '../lib/errores'
 import { formatearMonto } from '../lib/formato'
 import { Alerta, Boton, Campo, Hoja } from './UI'
@@ -16,25 +16,38 @@ function fechaCorta(iso) {
   return f.toLocaleDateString('es-VE', { day: 'numeric', month: 'short' })
 }
 
-export default function FormularioAbono({ deuda, abonos = [], alCerrar, alGuardar }) {
+export default function FormularioAbono({ deuda, alCerrar, alGuardar }) {
   const [monto, setMonto] = useState('')
   const [error, setError] = useState(null)
   const [errorGeneral, setErrorGeneral] = useState(null)
   const [guardando, setGuardando] = useState(false)
   const [borrando, setBorrando] = useState(null)
+  const [abonos, setAbonos] = useState([])
+
+  // Solo los de esta deuda: traer los del comercio entero era innecesario y
+  // encima se quedaba corto en cuanto pasaban de mil.
+  const cargarAbonos = useCallback(async () => {
+    if (!deuda?.id) return
+    try {
+      setAbonos(await listarAbonos(deuda.id))
+    } catch {
+      setAbonos([])
+    }
+  }, [deuda?.id])
 
   useEffect(() => {
     setMonto('')
     setError(null)
     setErrorGeneral(null)
-  }, [deuda?.id])
+    cargarAbonos()
+  }, [deuda?.id, cargarAbonos])
 
   if (!deuda) return null
 
   const total = Number(deuda.amount)
   const abonado = Number(deuda.abonado ?? 0)
   const saldo = Math.max(total - abonado, 0)
-  const mios = abonos.filter((a) => a.debt_id === deuda.id)
+  const mios = abonos
 
   async function enviar(evento) {
     evento.preventDefault()
@@ -73,6 +86,7 @@ export default function FormularioAbono({ deuda, abonos = [], alCerrar, alGuarda
     setBorrando(idAbono)
     try {
       await borrarAbono(idAbono)
+      await cargarAbonos()
       await alGuardar()
     } catch (fallo) {
       setErrorGeneral(mensajeDeError(fallo))

@@ -17,6 +17,10 @@ Ambas salen con código 1 si algo falla.
 | `02-abonos` | Que los abonos cuadren, que no se pueda abonar de más y que el último abono dispare el trigger del score |
 | `03-edicion` | Editar, borrar, reclamos y teléfono del cliente. Que una deuda pagada quede congelada |
 | `04-vencidas` | El barrido de los 30 días: dónde cae el corte, que solo barra lo propio y que caer en vencida reste 30 puntos |
+| `05-clientes` | Que la dirección y los teléfonos NO se filtren entre comercios, aunque el score sí sea compartido |
+| `06-ficha-red` | El corte de las 3 tiendas para mostrar el total adeudado |
+| `07-seguridad` | Intenta romper la app: incrustación de tablas, inyección, suplantación, escalada de privilegios, borrado ajeno |
+| `08-paginacion` | Crea 1100 fiados, por encima del corte de PostgREST, y comprueba que los totales sigan siendo exactos |
 
 ## Pruebas de interfaz — `npm run test:ui`
 

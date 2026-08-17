@@ -75,8 +75,8 @@ export default async function () {
   )
 
   s.seccion('Los abonos también están aislados')
-  const mios = (await rpc('list_payments', dueno.token)).datos ?? []
-  const ajenos = (await rpc('list_payments', mirador.token)).datos ?? []
+  const mios = (await rpc('list_payments', dueno.token, {})).datos ?? []
+  const ajenos = (await rpc('list_payments', mirador.token, {})).datos ?? []
   s.check('el dueño ve sus 3 abonos', mios.length === 3, `vio ${mios.length}`)
   s.check('el otro comerciante no ve ninguno', ajenos.length === 0, `vio ${ajenos.length}`)
   s.check(
@@ -88,7 +88,7 @@ export default async function () {
   const otra = await crearFiado(dueno.token, { cedula: CED, monto: 50, vence: fecha(20) })
   await rpc('add_payment', dueno.token, { p_debt_id: otra, p_amount: 20 })
   await rpc('mark_debt_paid', dueno.token, { p_debt_id: otra })
-  const deEsa = ((await rpc('list_payments', dueno.token)).datos ?? []).filter((p) => p.debt_id === otra)
+  const deEsa = ((await rpc('list_payments', dueno.token, {})).datos ?? []).filter((p) => p.debt_id === otra)
   s.check('quedaron 2 abonos: los $20 y el cierre de $30', deEsa.length === 2, `hubo ${deEsa.length}`)
   s.check(
     'suman los $50 completos',

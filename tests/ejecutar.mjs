@@ -18,6 +18,7 @@ import vencidas from './04-vencidas.mjs'
 import clientes from './05-clientes.mjs'
 import fichaRed from './06-ficha-red.mjs'
 import seguridad from './07-seguridad.mjs'
+import paginacion from './08-paginacion.mjs'
 
 const SUITES = [
   ['00', esquema],
@@ -28,6 +29,7 @@ const SUITES = [
   ['05', clientes],
   ['06', fichaRed],
   ['07', seguridad],
+  ['08', paginacion],
 ]
 
 const proyecto = URL_BASE.replace('https://', '').split('.')[0]

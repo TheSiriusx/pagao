@@ -77,21 +77,123 @@ export function crearSimulador({ conComercio = true, plan = 'free', consultasUsa
 
   function manejarRpc(nombre, args) {
     switch (nombre) {
-      case 'list_debts':
-        return {
-          cuerpo: estado.deudas
-            .map(conAbonado)
-            .sort((a, b) =>
-              a.status === 'paid' && b.status !== 'paid'
-                ? 1
-                : b.status === 'paid' && a.status !== 'paid'
-                  ? -1
-                  : String(a.due_date).localeCompare(String(b.due_date)),
-            ),
+      case 'list_debts': {
+        const hoy = new Date().toISOString().slice(0, 10)
+        const clase = (d) =>
+          d.status === 'paid' ? 'pagada'
+          : d.status === 'disputed' ? 'reclamo'
+          : d.due_date < hoy ? 'vencida'
+          : 'por_vencer'
+
+        let filas = estado.deudas.map(conAbonado)
+        if (args.p_clase) filas = filas.filter((d) => clase(d) === args.p_clase)
+        if (args.p_buscar) {
+          const q = String(args.p_buscar).toLowerCase()
+          const ced = String(args.p_buscar).toUpperCase().replace(/[^A-Z0-9]/g, '')
+          filas = filas.filter(
+            (d) => d.full_name.toLowerCase().includes(q) || (ced.length >= 2 && d.cedula.includes(ced)),
+          )
         }
+        filas.sort((a, b) =>
+          a.status === 'paid' && b.status !== 'paid' ? 1
+          : b.status === 'paid' && a.status !== 'paid' ? -1
+          : String(a.due_date).localeCompare(String(b.due_date)),
+        )
+        const desde = Number(args.p_desde ?? 0)
+        const limite = Number(args.p_limite ?? 100)
+        return { cuerpo: filas.slice(desde, desde + limite) }
+      }
+
+      case 'get_dashboard': {
+        const hoy = new Date().toISOString().slice(0, 10)
+        const clase = (d) =>
+          d.status === 'paid' ? 'pagada'
+          : d.status === 'disputed' ? 'reclamo'
+          : d.due_date < hoy ? 'vencida'
+          : 'por_vencer'
+        const con = estado.deudas.map(conAbonado)
+        const saldo = (d) => Number(d.amount) - Number(d.abonado ?? 0)
+        const pend = con.filter((d) => d.status !== 'paid')
+        const mes = new Date().toISOString().slice(0, 7)
+        return {
+          cuerpo: [{
+            por_cobrar: pend.reduce((t, d) => t + saldo(d), 0),
+            vencido: con.filter((d) => clase(d) === 'vencida').reduce((t, d) => t + saldo(d), 0),
+            cobrado_mes: estado.abonos
+              .filter((a) => String(a.paid_at).slice(0, 7) === mes)
+              .reduce((t, a) => t + Number(a.amount), 0),
+            clientes: new Set(pend.map((d) => d.debtor_id)).size,
+            n_todas: con.length,
+            n_por_vencer: con.filter((d) => clase(d) === 'por_vencer').length,
+            n_vencida: con.filter((d) => clase(d) === 'vencida').length,
+            n_reclamo: con.filter((d) => clase(d) === 'reclamo').length,
+            n_pagada: con.filter((d) => clase(d) === 'pagada').length,
+          }],
+        }
+      }
+
+      case 'get_clients_summary': {
+        const con = estado.deudas.map(conAbonado)
+        const porCliente = new Map()
+        for (const d of con) {
+          const c = porCliente.get(d.debtor_id) ?? { debe: 0, pendientes: 0, vencidas: 0 }
+          if (d.status !== 'paid') {
+            c.debe += Number(d.amount) - Number(d.abonado ?? 0)
+            c.pendientes += 1
+            if (d.due_date < new Date().toISOString().slice(0, 10)) c.vencidas += 1
+          }
+          porCliente.set(d.debtor_id, c)
+        }
+        const todos = [...porCliente.values()]
+        return {
+          cuerpo: [{
+            total: todos.length,
+            en_mora: todos.filter((c) => c.vencidas > 0).length,
+            con_deuda: todos.filter((c) => c.pendientes > 0 && c.vencidas === 0).length,
+            al_dia: todos.filter((c) => c.pendientes === 0).length,
+            debido: todos.reduce((t, c) => t + c.debe, 0),
+          }],
+        }
+      }
+
+      case 'list_clients': {
+        const con = estado.deudas.map(conAbonado)
+        const porCliente = new Map()
+        for (const d of con) {
+          const c = porCliente.get(d.debtor_id) ?? {
+            debtor_id: d.debtor_id, cedula: d.cedula, full_name: d.full_name,
+            phone: d.phone, phone2: null, address: null,
+            debe: 0, pendientes: 0, vencidas: 0, total_fiado: 0, ultima_fecha: d.due_date,
+          }
+          c.total_fiado += Number(d.amount)
+          if (d.status !== 'paid') {
+            c.debe += Number(d.amount) - Number(d.abonado ?? 0)
+            c.pendientes += 1
+            if (d.due_date < new Date().toISOString().slice(0, 10)) c.vencidas += 1
+          }
+          porCliente.set(d.debtor_id, c)
+        }
+        let filas = [...porCliente.values()]
+        if (args.p_buscar) {
+          const q = String(args.p_buscar).toLowerCase()
+          const ced = String(args.p_buscar).toUpperCase().replace(/[^A-Z0-9]/g, '')
+          filas = filas.filter(
+            (c) => c.full_name.toLowerCase().includes(q) || (ced.length >= 2 && c.cedula.includes(ced)),
+          )
+        }
+        if (args.p_filtro === 'mora') filas = filas.filter((c) => c.vencidas > 0)
+        if (args.p_filtro === 'deben') filas = filas.filter((c) => c.pendientes > 0 && c.vencidas === 0)
+        if (args.p_filtro === 'al_dia') filas = filas.filter((c) => c.pendientes === 0)
+        filas.sort((a, b) => (a.debe === 0) - (b.debe === 0) || b.debe - a.debe)
+        return { cuerpo: filas }
+      }
 
       case 'list_payments':
-        return { cuerpo: estado.abonos }
+        return {
+          cuerpo: args.p_debt_id
+            ? estado.abonos.filter((a) => a.debt_id === args.p_debt_id)
+            : estado.abonos,
+        }
 
       case 'create_debt': {
         const cedula = String(args.p_cedula ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')

@@ -29,6 +29,8 @@ const FIRMAS = {
   sweep_my_overdue: {},
   cron_vencidas_activo: {},
   list_clients: {},
+  get_dashboard: {},
+  get_clients_summary: {},
   update_client: { p_debtor_id: '00000000-0000-0000-0000-000000000000', p_full_name: 'X' },
 }
 

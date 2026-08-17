@@ -9,13 +9,40 @@ import { normalizarCedula, normalizarTelefono } from './formato'
  * servidor. El cliente solo tiene SELECT sobre debts.
  */
 
-/** Lista de deudas del comerciante, con nombre y cédula del cliente. */
-export async function listarDeudas() {
-  // get: true hace que viaje por GET, y así el service worker la puede
-  // cachear para que la lista se vea sin señal.
-  const { data, error } = await supabase.rpc('list_debts', {}, { get: true })
+/**
+ * Quita las claves vacías antes de mandar los argumentos.
+ *
+ * Estas RPC viajan por GET para que el service worker pueda cachearlas, y en
+ * una query string un null se convierte en la cadena "null", que no es lo
+ * mismo que no mandar el parámetro y quedarse con el valor por defecto.
+ */
+function args(objeto) {
+  return Object.fromEntries(
+    Object.entries(objeto).filter(([, v]) => v !== null && v !== undefined && v !== ''),
+  )
+}
+
+/**
+ * Una página de deudas, ya filtrada y buscada en el servidor.
+ *
+ * El filtrado no puede hacerse en el navegador: PostgREST corta en 1000 filas
+ * y filtrar sobre una lista truncada daría resultados incompletos sin avisar.
+ */
+export async function listarDeudas({ clase = null, buscar = null, limite = 100, desde = 0 } = {}) {
+  const { data, error } = await supabase.rpc(
+    'list_debts',
+    args({ p_clase: clase, p_buscar: buscar, p_limite: limite, p_desde: desde }),
+    { get: true },
+  )
   if (error) throw error
   return data ?? []
+}
+
+/** Totales de la pantalla principal, calculados en SQL sobre TODAS las filas. */
+export async function obtenerResumen() {
+  const { data, error } = await supabase.rpc('get_dashboard', {}, { get: true })
+  if (error) throw error
+  return (Array.isArray(data) ? data[0] : data) ?? null
 }
 
 export async function crearDeuda({ cedula, nombre, monto, vence, notas, telefono, telefono2, direccion }) {
@@ -33,11 +60,22 @@ export async function crearDeuda({ cedula, nombre, monto, vence, notas, telefono
   return data
 }
 
-/** Un renglón por cliente, con lo que te debe y si está en mora contigo. */
-export async function listarClientes() {
-  const { data, error } = await supabase.rpc('list_clients', {}, { get: true })
+/** Una página de clientes, filtrada y buscada en el servidor. */
+export async function listarClientes({ filtro = null, buscar = null, limite = 100, desde = 0 } = {}) {
+  const { data, error } = await supabase.rpc(
+    'list_clients',
+    args({ p_filtro: filtro, p_buscar: buscar, p_limite: limite, p_desde: desde }),
+    { get: true },
+  )
   if (error) throw error
   return data ?? []
+}
+
+/** Contadores de la pestaña Clientes, sobre el total. */
+export async function obtenerResumenClientes() {
+  const { data, error } = await supabase.rpc('get_clients_summary', {}, { get: true })
+  if (error) throw error
+  return (Array.isArray(data) ? data[0] : data) ?? null
 }
 
 export async function actualizarCliente({ debtorId, nombre, telefono, telefono2, direccion }) {
@@ -95,9 +133,13 @@ export async function abonar(idDeuda, monto) {
   return Array.isArray(data) ? (data[0] ?? null) : data
 }
 
-/** Abonos del comerciante, para el resumen del mes y el historial. */
-export async function listarAbonos() {
-  const { data, error } = await supabase.rpc('list_payments', {}, { get: true })
+/** Abonos de una deuda concreta, para su historial. */
+export async function listarAbonos(idDeuda) {
+  const { data, error } = await supabase.rpc(
+    'list_payments',
+    args({ p_debt_id: idDeuda }),
+    { get: true },
+  )
   if (error) throw error
   return data ?? []
 }

@@ -9,6 +9,9 @@ export function AuthProvider({ children }) {
   const [cargandoSesion, setCargandoSesion] = useState(true)
   const [cargandoComercio, setCargandoComercio] = useState(false)
   const [errorComercio, setErrorComercio] = useState(null)
+  // Al entrar por el enlace del correo de recuperación hay sesión, pero lo
+  // que toca es pedir la contraseña nueva, no soltar al usuario en la app.
+  const [recuperando, setRecuperando] = useState(false)
 
   // Evita que una respuesta lenta de un usuario anterior pise a la del actual.
   const peticionActual = useRef(0)
@@ -25,9 +28,12 @@ export function AuthProvider({ children }) {
     // El callback de onAuthStateChange debe ser síncrono: si se hace await de
     // otra llamada a supabase adentro, el cliente se traba esperándose a sí
     // mismo. La carga del comercio va en su propio efecto, más abajo.
-    const { data: sub } = supabase.auth.onAuthStateChange((_evento, nuevaSesion) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((evento, nuevaSesion) => {
       setSesion(nuevaSesion ?? null)
       setCargandoSesion(false)
+
+      if (evento === 'PASSWORD_RECOVERY') setRecuperando(true)
+      if (evento === 'SIGNED_OUT') setRecuperando(false)
     })
 
     return () => {
@@ -96,10 +102,22 @@ export function AuthProvider({ children }) {
       cargandoSesion,
       cargandoComercio,
       errorComercio,
+      recuperando,
+      terminarRecuperacion: () => setRecuperando(false),
       recargarComercio: cargarComercio,
       salir,
     }),
-    [sesion, usuario, comercio, cargandoSesion, cargandoComercio, errorComercio, cargarComercio, salir],
+    [
+      sesion,
+      usuario,
+      comercio,
+      cargandoSesion,
+      cargandoComercio,
+      errorComercio,
+      recuperando,
+      cargarComercio,
+      salir,
+    ],
   )
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>

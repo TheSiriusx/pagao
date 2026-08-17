@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import { Eye, EyeOff, LogIn, UserPlus } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Eye, EyeOff, LogIn, MailQuestion, UserPlus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { mensajeDeError } from '../lib/errores'
-import { Alerta, Boton, Campo, Logo } from '../components/UI'
+import { Alerta, Boton, Campo, Hoja, Logo } from '../components/UI'
 
 /**
  * Entrada por correo y contraseña.
@@ -22,6 +22,7 @@ export default function Login() {
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState(null)
   const [aviso, setAviso] = useState(null)
+  const [olvide, setOlvide] = useState(false)
 
   const creando = modo === 'crear'
 
@@ -167,6 +168,16 @@ export default function Login() {
             </Boton>
           </form>
 
+          {!creando && (
+            <button
+              type="button"
+              onClick={() => setOlvide(true)}
+              className="mt-4 w-full text-center text-sm text-slate-500 hover:text-slate-700"
+            >
+              Olvidé mi contraseña
+            </button>
+          )}
+
           <p className="mt-4 text-center text-sm text-slate-500">
             {creando ? '¿Ya tienes cuenta?' : '¿Todavía no tienes cuenta?'}{' '}
             <button type="button" onClick={cambiarModo} className="font-semibold text-marca-600">
@@ -179,6 +190,102 @@ export default function Login() {
           Tus deudas solo las ves tú. El score es lo único que se comparte.
         </p>
       </div>
+
+      <HojaOlvide abierta={olvide} correoInicial={correo} alCerrar={() => setOlvide(false)} />
     </div>
+  )
+}
+
+/** Manda el correo con el enlace para poner una contraseña nueva. */
+function HojaOlvide({ abierta, correoInicial, alCerrar }) {
+  const [correo, setCorreo] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [error, setError] = useState(null)
+  const [listo, setListo] = useState(false)
+
+  // Al abrirse se copia lo que ya haya escrito arriba. No sirve inicializar
+  // el estado: este componente se monta con el formulario vacío, mucho antes
+  // de que el usuario escriba nada.
+  useEffect(() => {
+    if (abierta) setCorreo(correoInicial ?? '')
+  }, [abierta, correoInicial])
+
+  async function enviar(evento) {
+    evento.preventDefault()
+    setError(null)
+
+    const email = correo.trim().toLowerCase()
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      setError('Escribe un correo válido.')
+      return
+    }
+
+    setEnviando(true)
+    const { error: fallo } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    })
+    setEnviando(false)
+
+    if (fallo) {
+      setError(mensajeDeError(fallo))
+      return
+    }
+    setListo(true)
+  }
+
+  function cerrar() {
+    setListo(false)
+    setError(null)
+    alCerrar()
+  }
+
+  return (
+    <Hoja abierta={abierta} alCerrar={cerrar} titulo="Recuperar la contraseña">
+      {listo ? (
+        <>
+          <Alerta tono="exito">
+            Si ese correo tiene cuenta, ya va en camino un enlace para poner una contraseña nueva.
+          </Alerta>
+          <p className="mt-3 text-sm text-slate-500">
+            Revisa también la carpeta de correo no deseado. El enlace vence en una hora.
+          </p>
+          <Boton variante="secundario" onClick={cerrar} className="mt-4">
+            Entendido
+          </Boton>
+        </>
+      ) : (
+        <form onSubmit={enviar} noValidate className="space-y-4">
+          <div className="flex items-start gap-3">
+            <span className="rounded-xl bg-slate-100 p-2 text-slate-500">
+              <MailQuestion className="size-5" aria-hidden="true" />
+            </span>
+            <p className="min-w-0 text-sm text-slate-600">
+              Te mandamos un enlace al correo con el que te registraste.
+            </p>
+          </div>
+
+          <Campo
+            id="correoOlvide"
+            etiqueta="Tu correo"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck="false"
+            placeholder="maria@ejemplo.com"
+            value={correo}
+            onChange={(e) => {
+              setCorreo(e.target.value)
+              setError(null)
+            }}
+            error={error}
+          />
+
+          <Boton type="submit" cargando={enviando}>
+            {enviando ? 'Enviando…' : 'Mandar el enlace'}
+          </Boton>
+        </form>
+      )}
+    </Hoja>
   )
 }

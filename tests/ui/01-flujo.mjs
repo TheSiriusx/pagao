@@ -44,6 +44,30 @@ export default async function ({ navegador, base, host, suite, capturar }) {
   )
   await capturar(p, '02-clave-mala')
 
+  s.seccion('Recuperar la contraseña')
+  await p.getByRole('button', { name: 'Olvidé mi contraseña' }).click()
+  await p.waitForSelector('#correoOlvide')
+  s.check('la hoja arrastra el correo ya escrito', (await p.inputValue('#correoOlvide')).includes('@'))
+  await capturar(p, '02b-olvide')
+
+  await p.fill('#correoOlvide', 'noesuncorreo')
+  await p.getByRole('button', { name: /Mandar el enlace/ }).click()
+  await p.waitForTimeout(300)
+  s.check('valida el correo antes de mandar nada', await p.getByText('Escribe un correo válido.').isVisible())
+
+  await p.fill('#correoOlvide', 'maria@ejemplo.com')
+  await p.getByRole('button', { name: /Mandar el enlace/ }).click()
+  await p.waitForTimeout(800)
+  s.check(
+    'confirma el envío sin decir si la cuenta existe',
+    await p.getByText(/Si ese correo tiene cuenta/).isVisible(),
+  )
+  const pedido = sim.estado.llamadas.find((l) => l.ruta.includes('/auth/v1/recover'))
+  s.check('llamó al endpoint de recuperación', Boolean(pedido), JSON.stringify(pedido ?? null))
+  await p.getByRole('button', { name: 'Entendido' }).click()
+  await p.waitForTimeout(400)
+
+  s.seccion('Entrar')
   await p.fill('#clave', 'clavebuena')
   await p.click('button[type=submit]')
   await p.waitForSelector('#negocio', { timeout: 8000 })

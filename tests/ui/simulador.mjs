@@ -257,6 +257,7 @@ export function crearSimulador({ conComercio = true, plan = 'free', consultasUsa
         }
         return responder(sesion())
       }
+      if (url.pathname.includes('/auth/v1/recover')) return responder({})
       if (url.pathname.includes('/auth/v1/user')) return responder(estado.usuario)
       if (url.pathname.includes('/auth/v1/logout')) return responder({})
 

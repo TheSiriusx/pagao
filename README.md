@@ -57,9 +57,19 @@ consulta de score que se cobra. El teléfono del comerciante se sigue pidiendo
 en el registro del negocio — es contacto, no credencial — y `merchants.phone`
 es obligatorio.
 
-Pendiente: **recuperar la contraseña**. Necesita un SMTP configurado en
-Supabase (el integrado solo sirve para pruebas, con un límite de pocos correos
-por hora).
+**Recuperar la contraseña** está implementado: *Olvidé mi contraseña* manda un
+enlace, y al volver con él la app detecta el evento `PASSWORD_RECOVERY` y pide
+la clave nueva antes de dejar entrar.
+
+Para que funcione hacen falta dos cosas en Supabase:
+
+1. **Authentication → URL Configuration**: la URL del sitio en *Site URL* y en
+   *Redirect URLs* (`http://localhost:5173` para desarrollo, el dominio de
+   Vercel para producción). Sin esto el enlace del correo no vuelve a la app.
+2. **Un SMTP propio** en *Project Settings → Auth → SMTP Settings*. El
+   integrado de Supabase manda unos pocos correos por hora y está pensado solo
+   para pruebas: con él, en producción, la mayoría de la gente no recibiría
+   nada. Resend da 3.000 correos gratis al mes.
 
 ## Pruebas
 

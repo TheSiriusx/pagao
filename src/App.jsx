@@ -2,12 +2,20 @@ import { useAuth } from './context/AuthContext'
 import { mensajeDeError } from './lib/errores'
 import { Alerta, Boton, Cargando, Logo } from './components/UI'
 import Login from './pages/Login'
+import NuevaClave from './pages/NuevaClave'
 import RegistroComercio from './pages/RegistroComercio'
 import Inicio from './pages/Inicio'
 
 export default function App() {
-  const { sesion, comercio, cargandoSesion, cargandoComercio, errorComercio, recargarComercio } =
-    useAuth()
+  const {
+    sesion,
+    comercio,
+    cargandoSesion,
+    cargandoComercio,
+    errorComercio,
+    recuperando,
+    recargarComercio,
+  } = useAuth()
 
   if (cargandoSesion) {
     return <PantallaCarga texto="Abriendo Pagao…" />
@@ -15,6 +23,11 @@ export default function App() {
 
   if (!sesion) {
     return <Login />
+  }
+
+  // Llegó por el enlace del correo: hay sesión, pero primero la contraseña.
+  if (recuperando) {
+    return <NuevaClave />
   }
 
   // Hay sesión pero todavía no sabemos si tiene ficha de comerciante.

@@ -16,7 +16,9 @@ export const supabase = configuracionLista
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: false,
+        // Hace falta para recuperar la contraseña: el enlace del correo trae
+        // el token en el fragmento de la URL, y sin esto nadie lo lee.
+        detectSessionInUrl: true,
       },
     })
   : null

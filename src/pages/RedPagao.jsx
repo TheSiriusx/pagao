@@ -97,17 +97,19 @@ export default function RedPagao() {
 
       {resultado ? (
         <section className="space-y-3">
-          <p className="text-center text-sm text-slate-500">{formatearCedula(resultado.cedula)}</p>
-
           <TarjetaScore
             banda={resultado.band}
             score={resultado.score}
             deudasActivas={resultado.active_debts}
+            nombre={resultado.full_name}
+            cedula={formatearCedula(resultado.cedula)}
+            totalDeuda={resultado.total_debt}
           />
 
           <Alerta tono="info">
-            Esto es todo lo que la red comparte: el puntaje, el color y en cuántos negocios debe.
-            Nunca los nombres de los comercios ni los montos.
+            {resultado.active_debts > 0 && resultado.total_debt == null
+              ? 'El total adeudado aparece a partir de 3 tiendas. Con menos, esa cifra revelaría cuánto le fió un comercio en concreto.'
+              : 'La red nunca dice en qué comercios debe ni cuánto le debe a cada uno.'}
           </Alerta>
         </section>
       ) : (

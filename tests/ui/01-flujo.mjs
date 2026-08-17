@@ -193,7 +193,10 @@ export default async function ({ navegador, base, host, suite, capturar }) {
 
   // ------------------------------------------------------------- Red Pagao --
   s.seccion('Red Pagao')
-  sim.sembrarScore('V99887766', { score: 85, band: 'verde', active_debts: 2 })
+  sim.sembrarScore('V99887766', {
+    score: 85, band: 'verde', active_debts: 3,
+    full_name: 'Juan Perez', total_debt: 80,
+  })
   await p.getByRole('button', { name: 'Red Pagao' }).click()
   await p.waitForSelector('#buscarCedula')
   await capturar(p, '11-red-vacia')
@@ -203,7 +206,9 @@ export default async function ({ navegador, base, host, suite, capturar }) {
   await p.waitForTimeout(1000)
   s.check('muestra el puntaje', await p.getByText('85').first().isVisible())
   s.check('muestra la banda en verde', await p.getByText('Buen pagador').isVisible())
-  s.check('dice en cuántos comercios debe', await p.getByText(/2.*comercios/).isVisible())
+  s.check('dice en cuántas tiendas debe', await p.getByText('3 tiendas').isVisible())
+  s.check('muestra el nombre del cliente', await p.getByText('Juan Perez').isVisible())
+  s.check('con 3 tiendas sí muestra el total', await p.getByText('$80,00').isVisible())
   await capturar(p, '12-score-verde')
 
   await p.fill('#buscarCedula', 'V11223344')

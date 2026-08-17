@@ -214,7 +214,9 @@ export function crearSimulador({ conComercio = true, plan = 'free', consultasUsa
         if (estado.comercio.plan === 'free') estado.comercio.free_queries_used += 1
 
         const guardado = estado.scores[cedula]
-        if (!guardado) return { cuerpo: [{ score: null, band: 'gris', active_debts: 0 }] }
+        if (!guardado) {
+          return { cuerpo: [{ score: null, band: 'gris', active_debts: 0, full_name: null, total_debt: null }] }
+        }
         return { cuerpo: [guardado] }
       }
 

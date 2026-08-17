@@ -89,9 +89,15 @@ export default async function () {
   s.check('la consulta gratis de A funciona', typeof filaA?.score === 'number', JSON.stringify(consultaA.datos)?.slice(0, 90))
   s.check('el cliente común aparece en 2 comercios', filaA?.active_debts === 2, `active_debts = ${filaA?.active_debts}`)
   s.check(
-    'la respuesta solo trae score, banda y número de deudas',
-    filaA && Object.keys(filaA).sort().join(',') === 'active_debts,band,score',
+    'la respuesta no trae nada más que lo acordado',
+    filaA && Object.keys(filaA).sort().join(',') === 'active_debts,band,full_name,score,total_debt',
     Object.keys(filaA ?? {}).join(','),
+  )
+  s.check('trae el nombre para confirmar la identidad', typeof filaA?.full_name === 'string', filaA?.full_name)
+  s.check(
+    'con menos de 3 deudas NO revela el total adeudado',
+    filaA?.total_debt === null,
+    `active_debts=${filaA?.active_debts}, total_debt=${filaA?.total_debt}`,
   )
 
   s.seccion('El límite del plan gratis lo aplica el servidor')

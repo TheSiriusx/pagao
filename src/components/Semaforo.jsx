@@ -1,3 +1,5 @@
+import { formatearMonto } from '../lib/formato'
+
 /**
  * Semáforo del score. Las bandas las decide get_debtor_score en el servidor:
  * verde ≥80, amarillo ≥60, naranja ≥40, rojo <40, gris = desconocido.
@@ -12,6 +14,8 @@ const BANDAS = {
     fondo: 'bg-emerald-50',
     texto: 'text-emerald-700',
     punto: 'bg-emerald-500',
+    disco: 'bg-emerald-500',
+    textoDisco: 'text-white',
   },
   amarillo: {
     etiqueta: 'Regular',
@@ -20,6 +24,8 @@ const BANDAS = {
     fondo: 'bg-amber-50',
     texto: 'text-amber-700',
     punto: 'bg-amber-500',
+    disco: 'bg-amber-400',
+    textoDisco: 'text-amber-950',
   },
   naranja: {
     etiqueta: 'Riesgoso',
@@ -28,6 +34,8 @@ const BANDAS = {
     fondo: 'bg-orange-50',
     texto: 'text-orange-700',
     punto: 'bg-orange-500',
+    disco: 'bg-orange-500',
+    textoDisco: 'text-white',
   },
   rojo: {
     etiqueta: 'Mal pagador',
@@ -36,6 +44,8 @@ const BANDAS = {
     fondo: 'bg-red-50',
     texto: 'text-red-700',
     punto: 'bg-red-500',
+    disco: 'bg-red-500',
+    textoDisco: 'text-white',
   },
   gris: {
     etiqueta: 'Sin historial',
@@ -44,6 +54,8 @@ const BANDAS = {
     fondo: 'bg-slate-50',
     texto: 'text-slate-600',
     punto: 'bg-slate-400',
+    disco: 'bg-slate-200',
+    textoDisco: 'text-slate-500',
   },
 }
 
@@ -65,32 +77,57 @@ export function PastillaScore({ banda, score }) {
   )
 }
 
-/** Tarjeta grande, para el resultado de la búsqueda en la Red Pagao. */
-export function TarjetaScore({ banda, score, deudasActivas }) {
+/** Ficha grande: el resultado de buscar una cédula en la Red Pagao. */
+export function TarjetaScore({ banda, score, deudasActivas, nombre, cedula, totalDeuda }) {
   const e = estiloBanda(banda)
 
   return (
-    <div className={`rounded-2xl p-5 text-center ring-1 ${e.fondo} ${e.anillo}`}>
-      <div className="flex items-center justify-center gap-2">
-        <span className={`size-3 rounded-full ${e.punto}`} aria-hidden="true" />
-        <span className={`text-sm font-semibold ${e.texto}`}>{e.etiqueta}</span>
+    <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+      <div className="px-5 pt-6 pb-5 text-center">
+        <div
+          className={`mx-auto flex size-28 flex-col items-center justify-center rounded-full
+                      ${e.disco} ${e.textoDisco}`}
+        >
+          <span className="text-4xl leading-none font-bold">{score ?? '—'}</span>
+          <span className="mt-0.5 text-[10px] font-semibold tracking-widest uppercase opacity-75">
+            Score
+          </span>
+        </div>
+
+        {nombre && <p className="mt-4 text-xl font-bold break-words text-slate-900">{nombre}</p>}
+        {cedula && <p className="text-sm text-slate-500">{cedula}</p>}
       </div>
 
-      <p className={`mt-2 text-5xl leading-none font-bold ${e.texto}`}>{score ?? '—'}</p>
-      <p className="mt-1 text-xs text-slate-500">{score === null ? 'sin puntaje' : 'de 100 puntos'}</p>
+      <dl className="divide-y divide-slate-100 border-t border-slate-100 text-sm">
+        <Fila termino="Nivel">
+          <span className={`font-semibold ${e.texto}`}>{e.etiqueta}</span>
+        </Fila>
 
-      <p className={`mt-3 text-sm ${e.texto}`}>{e.consejo}</p>
+        <Fila termino="Deudas activas">
+          <span className={`font-semibold ${deudasActivas > 0 ? 'text-slate-900' : 'text-slate-400'}`}>
+            {deudasActivas > 0
+              ? `${deudasActivas} ${deudasActivas === 1 ? 'tienda' : 'tiendas'}`
+              : 'Ninguna'}
+          </span>
+        </Fila>
 
-      <div className="mt-4 border-t border-white/60 pt-3 text-sm text-slate-600">
-        {deudasActivas > 0 ? (
-          <>
-            Debe en <strong>{deudasActivas}</strong>{' '}
-            {deudasActivas === 1 ? 'comercio' : 'comercios'} ahora mismo
-          </>
-        ) : (
-          'No tiene deudas pendientes en la red'
+        {totalDeuda != null && (
+          <Fila termino="Total adeudado">
+            <span className="font-semibold text-slate-900">{formatearMonto(totalDeuda)}</span>
+          </Fila>
         )}
-      </div>
+      </dl>
+
+      <p className={`px-5 py-4 text-center text-sm ${e.fondo} ${e.texto}`}>{e.consejo}</p>
+    </div>
+  )
+}
+
+function Fila({ termino, children }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-5 py-3">
+      <dt className="text-slate-500">{termino}</dt>
+      <dd className="min-w-0 text-right">{children}</dd>
     </div>
   )
 }

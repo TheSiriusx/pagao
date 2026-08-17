@@ -62,7 +62,7 @@ export default async function () {
     JSON.stringify(fichaB.datos)?.slice(0, 90),
   )
 
-  s.seccion('El paywall no se edita desde el navegador')
+  s.seccion('Las columnas del plan siguen fuera del alcance del cliente')
   const aPro = await api(`/rest/v1/merchants?id=eq.${A.uid}`, {
     token: A.token, metodo: 'PATCH', cuerpo: { plan: 'pro' },
   })
@@ -86,7 +86,7 @@ export default async function () {
   s.seccion('La Red Pagao comparte el score y nada más')
   const consultaA = await rpc('get_debtor_score', A.token, { p_cedula: CED_COMUN })
   const filaA = consultaA.datos?.[0]
-  s.check('la consulta gratis de A funciona', typeof filaA?.score === 'number', JSON.stringify(consultaA.datos)?.slice(0, 90))
+  s.check('la consulta a la red funciona', typeof filaA?.score === 'number', JSON.stringify(consultaA.datos)?.slice(0, 90))
   s.check('el cliente común aparece en 2 comercios', filaA?.active_debts === 2, `active_debts = ${filaA?.active_debts}`)
   s.check(
     'la respuesta no trae nada más que lo acordado',
@@ -100,18 +100,18 @@ export default async function () {
     `active_debts=${filaA?.active_debts}, total_debt=${filaA?.total_debt}`,
   )
 
-  s.seccion('El límite del plan gratis lo aplica el servidor')
-  s.check(
-    'la segunda consulta de A rebota',
-    fallaCon(await rpc('get_debtor_score', A.token, { p_cedula: CED_SOLO_A }), 'FREE_LIMIT'),
-  )
+  s.seccion('Las consultas son ilimitadas')
+  const segunda = await rpc('get_debtor_score', A.token, { p_cedula: CED_SOLO_A })
+  s.check('A puede consultar una segunda cédula', segunda.estado < 300, `HTTP ${segunda.estado}`)
+  const tercera = await rpc('get_debtor_score', A.token, { p_cedula: CED_COMUN })
+  s.check('y una tercera', tercera.estado < 300, `HTTP ${tercera.estado}`)
 
   s.seccion('El score lo mueve el trigger, no el cliente')
   const pago = await rpc('mark_debt_paid', A.token, { p_debt_id: deudaA1 })
   s.check('A marca pagada su propia deuda', pago.estado < 300, `HTTP ${pago.estado}`)
   const consultaB = await rpc('get_debtor_score', B.token, { p_cedula: CED_COMUN })
   const filaB = consultaB.datos?.[0]
-  s.check('B tiene su consulta gratis, aparte de la de A', typeof filaB?.score === 'number')
+  s.check('B también consulta sin tropiezos', typeof filaB?.score === 'number')
   s.check(
     `pagar antes de vencer sube el score (${filaA?.score} → ${filaB?.score})`,
     filaB?.score === filaA?.score + 15,

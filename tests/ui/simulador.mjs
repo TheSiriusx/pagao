@@ -208,11 +208,6 @@ export function crearSimulador({ conComercio = true, plan = 'free', consultasUsa
 
       case 'get_debtor_score': {
         const cedula = String(args.p_cedula ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
-        if (estado.comercio.plan === 'free' && estado.comercio.free_queries_used >= 1) {
-          return error('FREE_LIMIT')
-        }
-        if (estado.comercio.plan === 'free') estado.comercio.free_queries_used += 1
-
         const guardado = estado.scores[cedula]
         if (!guardado) {
           return { cuerpo: [{ score: null, band: 'gris', active_debts: 0, full_name: null, total_debt: null }] }

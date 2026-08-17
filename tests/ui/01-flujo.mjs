@@ -215,13 +215,14 @@ export default async function ({ navegador, base, host, suite, capturar }) {
   await p.getByRole('button', { name: /Consultar/ }).click()
   await p.waitForTimeout(1000)
   s.check(
-    'la segunda consulta abre el paywall',
-    await p.getByRole('heading', { name: 'Ya usaste tu consulta gratis' }).isVisible(),
+    'la segunda consulta no cobra ni bloquea',
+    (await p.getByText(/consulta gratis/).count()) === 0,
   )
-  s.check('el paywall muestra el precio', await p.getByText('$0,50').isVisible())
-  await capturar(p, '13-paywall')
-  await p.getByRole('button', { name: 'Entendido' }).click()
-  await p.waitForTimeout(400)
+  s.check(
+    'una cédula desconocida sale en gris',
+    await p.getByText('Sin historial').isVisible(),
+  )
+  await capturar(p, '13-desconocido')
 
   // --------------------------------------------------------------- ajustes --
   s.seccion('Ajustes')

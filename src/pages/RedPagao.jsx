@@ -1,24 +1,16 @@
 import { useState } from 'react'
 import { Search, ShieldCheck } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
 import { consultarScore } from '../lib/datos'
-import { codigoDeError, mensajeDeError } from '../lib/errores'
+import { mensajeDeError } from '../lib/errores'
 import { cedulaValida, formatearCedula } from '../lib/formato'
 import { Alerta, Boton, Campo, Vacio } from '../components/UI'
 import { TarjetaScore } from '../components/Semaforo'
-import ModalPaywall from '../components/ModalPaywall'
 
 export default function RedPagao() {
-  const { comercio, recargarComercio } = useAuth()
-
   const [cedula, setCedula] = useState('')
   const [consultando, setConsultando] = useState(false)
   const [resultado, setResultado] = useState(null)
   const [error, setError] = useState(null)
-  const [paywall, setPaywall] = useState(false)
-
-  const esPro = comercio.plan !== 'free'
-  const consultasGastadas = comercio.free_queries_used ?? 0
 
   async function buscar(evento) {
     evento.preventDefault()
@@ -34,17 +26,8 @@ export default function RedPagao() {
     try {
       const fila = await consultarScore(cedula)
       setResultado({ ...fila, cedula })
-      // El servidor pudo haber gastado la consulta gratis: hay que releer el
-      // contador para que Ajustes y este mismo aviso digan la verdad.
-      await recargarComercio()
     } catch (fallo) {
-      // El límite lo decide get_debtor_score en el servidor. Aquí solo se
-      // reacciona al código que devolvió.
-      if (codigoDeError(fallo) === 'FREE_LIMIT') {
-        setPaywall(true)
-      } else {
-        setError(mensajeDeError(fallo))
-      }
+      setError(mensajeDeError(fallo))
     } finally {
       setConsultando(false)
     }
@@ -85,14 +68,6 @@ export default function RedPagao() {
             {consultando ? 'Consultando…' : 'Consultar'}
           </Boton>
         </form>
-
-        {!esPro && (
-          <p className="mt-3 text-center text-xs text-slate-400">
-            {consultasGastadas >= 1
-              ? 'Ya usaste tu consulta gratis.'
-              : 'Te queda 1 consulta gratis.'}
-          </p>
-        )}
       </section>
 
       {resultado ? (
@@ -119,8 +94,6 @@ export default function RedPagao() {
           texto="Escribe la cédula y te decimos si paga a tiempo, según lo que reportan otros comercios."
         />
       )}
-
-      <ModalPaywall abierto={paywall} alCerrar={() => setPaywall(false)} />
     </div>
   )
 }

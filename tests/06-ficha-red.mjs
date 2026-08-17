@@ -47,8 +47,7 @@ export default async function () {
   s.seccion('El total descuenta los abonos')
   const deudaD = await crearFiado(D.token, { cedula: CED, monto: 100, vence: fecha(30) })
   await rpc('add_payment', D.token, { p_debt_id: deudaD, p_amount: 60 })
-  const E = await crearComerciante('fichaE')
-  const con4 = (await rpc('get_debtor_score', E.token, { p_cedula: CED })).datos?.[0]
+  const con4 = (await rpc('get_debtor_score', A.token, { p_cedula: CED })).datos?.[0]
   s.check('4 deudas activas', con4?.active_debts === 4, `${con4?.active_debts}`)
   s.check(
     'el total cuenta el saldo, no el monto original',
@@ -70,8 +69,7 @@ export default async function () {
   )
 
   s.seccion('Un desconocido en la red no filtra nada')
-  const G = await crearComerciante('fichaG')
-  const nadie = (await rpc('get_debtor_score', G.token, { p_cedula: `V${SELLO}45` })).datos?.[0]
+  const nadie = (await rpc('get_debtor_score', A.token, { p_cedula: `V${SELLO}45` })).datos?.[0]
   s.check('banda gris', nadie?.band === 'gris', nadie?.band)
   s.check('sin score', nadie?.score === null)
   s.check('sin nombre', nadie?.full_name === null, `${nadie?.full_name}`)

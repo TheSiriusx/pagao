@@ -73,10 +73,7 @@ export default async function () {
   s.seccion('El barrido es idempotente')
   const segunda = await rpc('sweep_my_overdue', A.token)
   s.check('correrlo otra vez no barre nada', segunda.datos === 0, `barrió ${segunda.datos}`)
-  // A y B ya gastaron su consulta gratis, así que para volver a leer el score
-  // hace falta un tercer par de ojos.
-  const C = await crearComerciante('testigo')
-  const scoreFinal = (await rpc('get_debtor_score', C.token, { p_cedula: CED })).datos?.[0]?.score
+  const scoreFinal = (await rpc('get_debtor_score', A.token, { p_cedula: CED })).datos?.[0]?.score
   s.check(
     'y no vuelve a castigar el score',
     scoreFinal === scoreDespues,

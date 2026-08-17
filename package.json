@@ -10,7 +10,8 @@
     "test": "node tests/ejecutar.mjs",
     "test:ui": "node tests/ui/ejecutar.mjs",
     "test:todo": "npm run test && npm run test:ui",
-    "demo": "node scripts/sembrar-demo.mjs"
+    "demo": "node scripts/sembrar-demo.mjs",
+    "carga": "node scripts/medir-carga.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.2",

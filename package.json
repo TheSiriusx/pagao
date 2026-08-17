@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "node tests/ejecutar.mjs",
     "test:ui": "node tests/ui/ejecutar.mjs",
-    "test:todo": "npm run test && npm run test:ui"
+    "test:todo": "npm run test && npm run test:ui",
+    "demo": "node scripts/sembrar-demo.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.2",

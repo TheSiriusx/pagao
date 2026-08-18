@@ -87,6 +87,23 @@ Dos capas:
 
 Detalle y limpieza de los datos de prueba en [tests/README.md](tests/README.md).
 
+## Despliegue
+
+Vercel detecta Vite solo. Solo hay que darle las dos variables de entorno
+(`VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`) y, después del primer deploy,
+añadir el dominio en Supabase → Authentication → URL Configuration, tanto en
+*Site URL* como en *Redirect URLs*. Sin eso el enlace de recuperar contraseña
+no vuelve a la app.
+
+`vercel.json` fija las cabeceras de caché. La regla que importa es la del
+service worker: si el navegador se queda con uno viejo, el comerciante sigue
+viendo una versión anterior de la app aunque publiques cien veces. Los assets
+llevan hash en el nombre, así que esos sí se cachean para siempre.
+
+Ojo al editarlo: **el esquema de Vercel rechaza cualquier propiedad que no
+conozca**, incluidas las que se añadan a modo de comentario. JSON no admite
+comentarios y Vercel no perdona el intento.
+
 ## Estructura
 
 ```
